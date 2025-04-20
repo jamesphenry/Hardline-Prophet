@@ -2,8 +2,10 @@
 using HardlineProphet.Core; // GameConstants
 using HardlineProphet.Core.Interfaces; // IGameStateRepository
 using HardlineProphet.Core.Models; // GameState, PlayerStats
-using System; // NotImplementedException, Environment
+using System; // NotImplementedException, Environment, Convert
 using System.IO; // Path, File, Directory, IOException
+using System.Security.Cryptography; // SHA256
+using System.Text; // Encoding
 using System.Text.Json; // JsonSerializer, JsonException, JsonSerializerOptions
 using System.Threading.Tasks; // Task
 
@@ -20,11 +22,17 @@ public class JsonGameStateRepository : IGameStateRepository
     {
         PropertyNameCaseInsensitive = true,
     };
-    // Options for serialization (saving) - using WriteIndented for readability
-    private static readonly JsonSerializerOptions _serializeOptions = new()
+    // Options for serialization (saving) - using WriteIndented for readability in file
+    private static readonly JsonSerializerOptions _serializeOptionsSave = new()
     {
-        WriteIndented = true,
-        // PropertyNamingPolicy = JsonNamingPolicy.CamelCase, // Optional: if needed
+        WriteIndented = true, // Make saved file readable
+        PropertyNamingPolicy = null
+    };
+    // Options for checksum calculation - MUST be consistent and non-indented
+    private static readonly JsonSerializerOptions _serializeOptionsChecksum = new()
+    {
+        WriteIndented = false, // No indentation for checksum consistency
+        PropertyNamingPolicy = null // Ensure exact property names
     };
 
 
@@ -46,7 +54,7 @@ public class JsonGameStateRepository : IGameStateRepository
     {
         var sanitizedUsername = string.Join("_", username.Split(Path.GetInvalidFileNameChars()));
         if (string.IsNullOrWhiteSpace(sanitizedUsername)) { sanitizedUsername = "default_user"; }
-        Directory.CreateDirectory(_saveBasePath);
+        Directory.CreateDirectory(_saveBasePath); // Ensure directory exists just before getting path
         return Path.Combine(_saveBasePath, $"{sanitizedUsername}.save.json");
     }
 
@@ -94,41 +102,51 @@ public class JsonGameStateRepository : IGameStateRepository
         }
     }
 
-    // Implement the Save method
     public async Task SaveStateAsync(GameState gameState)
     {
-        // Ensure gameState and username are valid before proceeding
         if (gameState == null) throw new ArgumentNullException(nameof(gameState));
         if (string.IsNullOrWhiteSpace(gameState.Username)) throw new ArgumentException("GameState must have a valid Username to save.", nameof(gameState));
 
         var filePath = GetSaveFilePath(gameState.Username);
 
-        // TODO: Calculate and set checksum on gameState *before* serializing later
-        // gameState.Checksum = ComputeChecksum(gameState); // Example placeholder
+        // Calculate checksum *before* saving
+        string calculatedChecksum = ComputeChecksum(gameState);
+
+        // Create a new state instance including the checksum using the 'with' expression
+        var stateToSerialize = gameState with { Checksum = calculatedChecksum };
 
         try
         {
-            // Serialize the state to JSON
-            string json = JsonSerializer.Serialize(gameState, _serializeOptions);
+            // Serialize the state *with the checksum* to JSON
+            string json = JsonSerializer.Serialize(stateToSerialize, _serializeOptionsSave);
 
-            // Write the JSON to the file asynchronously, overwriting if it exists
+            // Write the JSON to the file asynchronously
             await File.WriteAllTextAsync(filePath, json);
         }
         catch (JsonException jsonEx)
         {
-            // Handle potential errors during serialization
-            // Consider logging this error
-            throw new Exception($"Failed to serialize game state for user '{gameState.Username}'.", jsonEx); // Or a custom exception type
+            throw new Exception($"Failed to serialize game state for user '{gameState.Username}'.", jsonEx);
         }
         catch (IOException ioEx)
         {
-            // Handle potential errors during file writing
-            // Consider logging this error
             throw new IOException($"Failed to write save file for user '{gameState.Username}'.", ioEx);
         }
-        // Catch other potential exceptions if needed
     }
 
-    // TODO: Implement checksum logic later
-    // private string ComputeChecksum(GameState state) { ... }
+    /// <summary>
+    /// Computes the SHA256 checksum for a GameState object.
+    /// Serializes the state excluding the Checksum property itself.
+    /// </summary>
+    private string ComputeChecksum(GameState state)
+    {
+        // Use 'with' expression to create a copy with Checksum explicitly null
+        var stateForHashing = state with { Checksum = null };
+
+        // Serialize using consistent, non-indented options
+        var json = JsonSerializer.Serialize(stateForHashing, _serializeOptionsChecksum);
+
+        using var sha256 = SHA256.Create();
+        var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(json));
+        return Convert.ToBase64String(hashBytes);
+    }
 }
