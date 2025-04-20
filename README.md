@@ -1,116 +1,175 @@
 ## Logo
 
-![Data‑Stream Beacon Logo](images/project1.png)
 
-**Hardline Prophet**  
+
+**Hardline Prophet**\
 *When Progress Is Your Only Religion.*
 
-# Hardline Prophet — Game Design Document (GDD)
+# Hardline Prophet — Design Blueprint
 
-## 1. Introduction
+## 1. Design Pillars
 
-### 1.1 Purpose
-This document outlines the design for **Hardline Prophet**, a cyberpunk-themed idle/CLI-driven progression game. It serves as the single source of truth for vision, mechanics, UI flow, and technical requirements.
-
-> [!NOTE]
-> Everything in this file lives in your `README.md`, so updates here will reflect immediately for users and contributors.
-
-### 1.2 Audience
-- Players who enjoy atmospheric, narrative-lite cyberpunk experiences.  
-- Developers and designers collaborating on the Hardline Prophet project.
-
-### 1.3 Scope
-Covers core gameplay loop, progression systems, UI/UX sketches (ASCII/CLI), save/load architecture, and the splash/menu flows.
+- **Atmospheric Minimalism**\
+  Keep the interface lean—every element serves a purpose in the cyber‑CLI vibe.
+  > [!TIP]\
+  > Use subtle ASCII noise/scan‑lines in backgrounds rather than bulky art assets.
+- **Player Agency via Choices**\
+  Even in an “idle” loop, let the player steer risk versus reward through timely upgrades and special jobs.
+- **Seamless Flow**\
+  Splash → Menu → Idle Progress → Actions → Save/Exit should feel like one uninterrupted sequence.
 
 ---
 
-## 2. Vision Statement
-"When Progress Is Your Only Religion." Hardline Prophet immerses players in a dystopian net-runner’s journey, where every action pulses through the undercity’s data streams and shapes your fate.
+## 2. Core Gameplay Loop
+
+1. **Logon** → Load `GameState`
+2. **Idle Progress Cycle**
+   - Timer ticks every N seconds → “█” bar advances + mission results append to log
+   - Credits and experience awarded
+3. **Intervene** (optional)
+   - **Upgrade Implants** (spend credits)
+   - **Accept Special Job** (one‑off mission with modifiers)
+4. **Repeat** until player hits “Logoff” or “Shutdown”
+
+> [!IMPORTANT]\
+> If the player takes too long to intervene, introduce “Overheat” or “Trace” penalties to keep tension.
 
 ---
 
-## 3. Core Gameplay Concept
+## 3. Systems Overview
 
-- **Progress Loop:** Idle/automated missions (data heists, black-market trades) advance the progress bar.  
-- **Interventions:** Player can choose to upgrade cyberware, adjust script parameters, or accept riskier jobs for higher reward.  
-- **Narrative Strobes:** Occasional flavor text and world-state changes appear between cycles.
+### 3.1 Mission Generator
 
-> [!TIP]
-> Use modular mission generators so you can add new job types without touching core loop logic.
+- **Types:** Data Heist, Smuggle, Counter‑ICE
+- **Parameters:**
+  - Difficulty (affects duration & reward)
+  - Risk (chance of “Trace” penalty)
+- **Output:**
+  ```json
+  {
+    "id": "job_001",
+    "type": "DataHeist",
+    "duration": 30,        // seconds
+    "reward": { "credits": 50, "xp": 10 },
+    "traceRisk": 0.1       // 10% per tick
+  }
+  ```
+  > [!NOTE]\
+  > Keep mission templates in a JSON file so you can hot‑swap new job types.
 
----
+### 3.2 Progression & Stats
 
-## 4. Gameplay Loop
+- **Stats:**
+  - `HackSpeed` (ticks/sec)
+  - `Stealth` (reduces Trace events)
+  - `DataYield` (bonus credits)
+- **Leveling:**
+  - XP thresholds per level (`level^1.5 * baseXP`)
+  - Stat points awarded on level up
 
-1. **Splash & Menu:** Neon‑glitch intro → Main menu (Logon/Logoff/Shutdown).  
-2. **Logon (Load):** Prompt username/password → Validate credentials → Load saved profile.  
-3. **Idle Progress:** Progress bar fills automatically over time; status messages log mission outcomes.  
-4. **Player Actions:** At any time, access Actions menu to:  
-   - Upgrade Implants (spend credits)  
-   - Accept Special Job (one‑off quest)  
-5. **Logoff (Save):** Saves current profile state to disk.  
-6. **Shutdown:** Auto‑save then exit.
+### 3.3 Economy & Upgrades
 
-> [!WARNING]
-> Shutting down without logging off will still auto-save, but interrupting during file write may corrupt the save. Always wait for confirmation.
+- **Currency:** Credits
+- **Shop:**
 
----
+  | Item               | Cost | Effect         |
+  | ------------------ | ---- | -------------- |
+  | Neural Accelerator | 100  | +10% HackSpeed |
+  | Signal Scrambler   | 150  | +5 Stealth     |
+  | Data Compressor    | 200  | +15% DataYield |
 
-## 5. UI & Controls
-
-- **CLI/Terminal.Gui Layout:**  
-  - **MenuBar**: Actions → Logon, Logoff, Shutdown  
-  - **Status Window**: Displays progress bar, mission logs, and system messages.  
-  - **Input Prompts**: Pop‑up dialogs for credentials, confirmations, and upgrade selections.
-
-> [!CAUTION]
-> Avoid placing blocking dialogs on top of ongoing animations—they can cause flicker on some terminals.
-
----
-
-## 6. Progression & Upgrades
-
-- **Stats:** HackSpeed, Stealth, DataYield  
-- **Upgrades:** Cyberdeck, Neural Accelerator, Signal Scrambler  
-- **Currency:** Credits earned per cycle, spent on upgrades.
-
-> [!TIP]
-> Balance upgrade costs to encourage strategic choices—early tiers should feel affordable, later tiers should require real planning.
+> [!CAUTION]\
+> Upgrades persist only after “Logoff” or “Shutdown” (auto‑save).
 
 ---
 
-## 7. Save/Load Architecture
+## 4. UI & Flow
+
+### 4.1 Splash & Menu
+
+- Animated neon‑glitch splash (2 s)
+- MenuBar: **Logon**, **Logoff**, **Shutdown**
+
+### 4.2 In‑Game View
+
+- **Progress Bar:** ASCII block filling
+- **Log Window:** Scrollable feed of mission results
+- **Status Pane:** Current stats & credits
+
+### 4.3 Dialogs
+
+- **Logon Dialog:**  
+  - Prompt `Username:` + `Password:` (mask input)
+- **Upgrade Prompt:**  
+  - List items, navigate with arrow keys **and mouse clicks**
+- **Special Job Prompt:**  
+  - Risk/reward summary
 
 > [!IMPORTANT]
-> Always validate the user’s credentials before loading a save file to prevent unauthorized access.
+> Developer Mode only: launch with `--dev` flag to enable the **Dev** menu.
 
-- **File Format:** JSON per user: `{ username }.save.json`  
-- **On Logon:** Read file into in‑memory `GameState` object.  
-- **On Logoff/Shutdown:** Serialize `GameState` back to JSON.
-
-> [!TIP]
-> Keep your `GameState` schema backwards‑compatible by versioning the JSON and providing migration logic.
+- **Dev Menu:**  
+  - Appears only in developer mode (`--dev`)
+  - Provides data editors: `Edit Items`, `Edit Missions`, etc.
+  - Each option opens a Terminal.Gui JSON editor for corresponding files.
 
 ---
 
-## 8. Technical Requirements
+## 5. Data Model
 
-- **Tech Stack:** .NET 8, Terminal.Gui, Spectre.Console  
-- **Persistence:** Local JSON files  
-- **Testing:** xUnit + NFluent for unit tests on save/load, progression logic
+```csharp
+public class GameState
+{
+    public string Username { get; set; }
+    public int Level { get; set; }
+    public double Experience { get; set; }
+    public int Credits { get; set; }
+    public Dictionary<string, int> Stats { get; set; }
+    public List<Mission> ActiveMissions { get; set; }
+}
+```
 
-> [!CAUTION]
-> Ensure your .NET runtime matches your target framework (net8.0); mismatches can lead to unexpected crashes.
+> [!TIP]\
+> Store a `Version` field to enable future migrations.
 
 ---
 
-## 9. Future Considerations
+## 6. Persistence & File I/O
 
-- Add multiplayer leaderboards (upload stats)  
-- Thematic seasonal events (modular content)  
-- Expand flavor text narrative modules
+- **Save File:** `${Username}.save.json`
+- **On Logon:**
+  ```csharp
+  var json = File.ReadAllText(path);
+  var state = JsonSerializer.Deserialize<GameState>(json);
+  ```
+- **On Save/Shutdown:**
+  ```csharp
+  var json = JsonSerializer.Serialize(state, options);
+  File.WriteAllText(path, json);
+  ```
 
-> [!NOTE]
-> This section is a living list—feel free to propose and link new features here as issues or PRs.
+> [!WARNING]\
+> Wrap file reads/writes in try/catch to handle disk errors gracefully.
 
-*End of GDD draft.*  
+---
+
+## 7. Testing Strategy
+
+- **Unit Tests (xUnit + NFluent):**
+  - Mission generator outputs valid parameters
+  - Stat growth formula correctness
+  - Save/load round‑trip fidelity
+- **Integration Tests:**
+  - Simulate multiple ticks → verify progress and credits
+
+---
+
+## 8. Future Roadmap
+
+1. **Flavor Modules:** Plug‑and‑play narrative events
+2. **Leaderboard Upload:** Spectre.Console CLI command
+3. **Themed Skins:** Alternate ASCII art palettes
+
+> [!NOTE]\
+> This blueprint sits in `README.md`—contributors can jump right in without separate docs.
+
