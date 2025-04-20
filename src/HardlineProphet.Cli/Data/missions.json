@@ -1,0 +1,12 @@
+[
+  {
+    "Id": "data_skim_01",
+    "Name": "Data Skim",
+    "DurationTicks": 15,
+    "Reward": {
+      "Credits": 25,
+      "Xp": 5.0
+    }
+  }
+]
+    

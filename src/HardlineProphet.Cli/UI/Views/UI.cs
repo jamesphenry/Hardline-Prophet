@@ -1,9 +1,10 @@
 ﻿// src/HardlineProphet/UI/Views/UI.cs
-using HardlineProphet.Core.Models; // GameState
+using HardlineProphet.Core.Models; // GameState, Mission (needed for dictionary type)
 using HardlineProphet.Services; // TickService
 using HardlineProphet.UI.Dialogs; // LogonDialog
 using Terminal.Gui;
 using System; // MessageBox, Console, Exception, Func, Action
+using System.Collections.Generic; // Added for IReadOnlyDictionary
 using System.IO; // InvalidDataException, IOException
 using System.Threading.Tasks; // Task
 
@@ -42,7 +43,7 @@ public static class UI
                     ApplicationState.TickServiceInstance?.Stop();
                     ApplicationState.TickServiceInstance = null;
                     ApplicationState.CurrentGameState = null;
-                    ApplicationState.InGameViewInstance = null;
+                    ApplicationState.InGameViewInstance = null; // Clear view instance too
                     AddLoggedOffStatus(); // Show logged off status initially
 
                     // Show Logon Dialog
@@ -81,17 +82,20 @@ public static class UI
                                 Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.AddLogMessage(msg));
                             };
 
-                            // Instantiate, store, and start the service
+                            // Ensure mission definitions are loaded (handle potential null - though Program.cs should init to empty dict)
+                            var missions = ApplicationState.LoadedMissions ?? new Dictionary<string, Mission>();
+
+                            // Instantiate, store, and start the service - CORRECTED ARGUMENTS
                             ApplicationState.TickServiceInstance = new TickService(
-                                getGameState,
-                                updateGameState,
-                                tickLog,
-                                Application.MainLoop // Pass the application's main loop
+                                getGameState,           // Arg 1
+                                updateGameState,        // Arg 2
+                                tickLog,                // Arg 3
+                                missions,               // Arg 4 - Pass loaded missions
+                                Application.MainLoop    // Arg 5 - Pass the main loop
                             );
                             ApplicationState.TickServiceInstance.Start();
                             // -----------------------------------------
 
-                            // Optional: Add status bar message or log entry confirming logon
                             Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.AddLogMessage($"Logon successful for {username}."));
 
                         }

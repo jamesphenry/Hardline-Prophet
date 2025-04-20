@@ -1,36 +1,39 @@
 ﻿// src/HardlineProphet/Services/TickService.cs
 using HardlineProphet.Core; // GameConstants
 using HardlineProphet.Core.Interfaces; // ITickService
-using HardlineProphet.Core.Models; // GameState
+using HardlineProphet.Core.Models; // GameState, Mission
 using System; // Func, Action, ArgumentNullException, Math, TimeSpan
+using System.Collections.Generic; // IReadOnlyDictionary
+using System.Linq; // FirstOrDefault
 using Terminal.Gui; // MainLoop
 
 namespace HardlineProphet.Services;
 
-/// <summary>
-/// Implementation of the game's core tick loop service.
-/// </summary>
 public class TickService : ITickService
 {
-    // Dependencies provided via constructor
     private readonly Func<GameState?> _getGameState;
     private readonly Action<GameState> _updateGameState;
     private readonly Action<string> _logAction;
-    private readonly MainLoop _mainLoop; // Added MainLoop dependency
+    private readonly MainLoop? _mainLoop;
+    private readonly IReadOnlyDictionary<string, Mission> _missionDefinitions;
 
     private bool _isRunning = false;
-    private object? _timeoutToken = null; // To store MainLoop.AddTimeout result
+    private object? _timeoutToken = null;
 
-    private const int CreditsPerTick = 10;
     private const double BaseTickIntervalSeconds = 2.0;
 
-    // Constructor updated to accept MainLoop
-    public TickService(Func<GameState?> getGameState, Action<GameState> updateGameState, Action<string> logAction, MainLoop mainLoop)
+    public TickService(
+        Func<GameState?> getGameState,
+        Action<GameState> updateGameState,
+        Action<string> logAction,
+        IReadOnlyDictionary<string, Mission> missionDefinitions,
+        MainLoop? mainLoop = null)
     {
         _getGameState = getGameState ?? throw new ArgumentNullException(nameof(getGameState));
         _updateGameState = updateGameState ?? throw new ArgumentNullException(nameof(updateGameState));
         _logAction = logAction ?? throw new ArgumentNullException(nameof(logAction));
-        _mainLoop = mainLoop ?? throw new ArgumentNullException(nameof(mainLoop)); // Store MainLoop
+        _missionDefinitions = missionDefinitions ?? throw new ArgumentNullException(nameof(missionDefinitions));
+        _mainLoop = mainLoop;
     }
 
     public bool IsRunning => _isRunning;
@@ -40,113 +43,120 @@ public class TickService : ITickService
         if (_isRunning) return;
         _isRunning = true;
         _logAction?.Invoke("TickService started. Scheduling first tick...");
-        // Schedule the first tick using the calculated interval
-        ScheduleTick();
+        if (_mainLoop != null) { ScheduleTick(); }
+        else { _logAction?.Invoke("TickService started but MainLoop is null (likely testing). Tick scheduling skipped."); }
     }
 
     public void Stop()
     {
         if (!_isRunning) return;
         _isRunning = false;
-        // Remove any pending timeout
-        if (_timeoutToken != null)
-        {
-            _logAction?.Invoke("TickService stopping. Removing timeout.");
-            _mainLoop.RemoveTimeout(_timeoutToken);
-            _timeoutToken = null;
-        }
-        else
-        {
-            _logAction?.Invoke("TickService stopping. No active timeout.");
-        }
+        if (_mainLoop != null && _timeoutToken != null) { _mainLoop.RemoveTimeout(_timeoutToken); _timeoutToken = null; _logAction?.Invoke("TickService stopping. Removing timeout."); }
+        else { _logAction?.Invoke($"TickService stopping. MainLoop null? {_mainLoop == null}, Timeout token null? {_timeoutToken == null}"); }
     }
 
-    /// <summary>
-    /// Processes a single game tick. Should primarily be called by the MainLoop callback.
-    /// </summary>
-    public void ProcessTick() // Keeping public for potential manual trigger/testing
+    public void ProcessTick()
     {
-        // Note: _isRunning check is now primarily handled by the TickCallback return value
         var currentState = _getGameState();
-        if (currentState == null) // Only need to check for null state now
-        {
-            _logAction?.Invoke($"ProcessTick exiting: currentState is null.");
-            Stop(); // Stop if state is lost
-            return;
-        }
+        if (currentState == null) { Stop(); return; }
 
         _logAction?.Invoke($"Processing tick for {currentState.Username}...");
-        var newCredits = currentState.Credits + CreditsPerTick;
-        // _logAction?.Invoke($"Calculated newCredits = {newCredits}"); // Reduce noise maybe
-        var newState = currentState with { Credits = newCredits };
-        // _logAction?.Invoke($"Created newState with Credits = {newState.Credits}. Calling _updateGameState...");
+
+        string? currentMissionId = currentState.ActiveMissionId;
+        int currentProgress = currentState.ActiveMissionProgress;
+        GameState newState; // Declare newState variable
+
+        // --- Mission Logic ---
+        // 1. Assign default mission if none is active or current is invalid
+        if (string.IsNullOrEmpty(currentMissionId) || !_missionDefinitions.ContainsKey(currentMissionId))
+        {
+            string? defaultMissionId = _missionDefinitions.Keys.FirstOrDefault();
+            if (!string.IsNullOrEmpty(defaultMissionId))
+            {
+                _logAction?.Invoke($"No active/valid mission. Assigning default: {defaultMissionId}");
+                newState = currentState with { ActiveMissionId = defaultMissionId, ActiveMissionProgress = 1 };
+                _logAction?.Invoke($"Mission '{defaultMissionId}' started, progress: 1");
+            }
+            else
+            {
+                _logAction?.Invoke($"WARNING: No active mission and no default missions loaded. Cannot progress.");
+                return;
+            }
+        }
+        // 2. If mission is active, increment progress and check for completion
+        else
+        {
+            if (!_missionDefinitions.TryGetValue(currentMissionId, out var missionDef))
+            {
+                _logAction?.Invoke($"ERROR: Could not find definition for active mission ID '{currentMissionId}'. Skipping progress.");
+                return;
+            }
+
+            currentProgress++;
+            _logAction?.Invoke($"Mission '{currentMissionId}' progress: {currentProgress}/{missionDef.DurationTicks}");
+
+            // --- Check for Mission Completion ---
+            if (currentProgress >= missionDef.DurationTicks)
+            {
+                _logAction?.Invoke($"Mission '{currentMissionId}' completed!");
+                // Calculate new totals
+                var newCredits = currentState.Credits + missionDef.Reward.Credits;
+                var newExperience = currentState.Experience + missionDef.Reward.Xp;
+                // Reset progress for loop (M1 behavior)
+                currentProgress = 0;
+
+                _logAction?.Invoke($"Awarded {missionDef.Reward.Credits} Credits (Total: {newCredits}), {missionDef.Reward.Xp:F1} XP (Total: {newExperience:F1}).");
+
+                // Update state with rewards and reset progress
+                newState = currentState with
+                {
+                    Credits = newCredits,
+                    Experience = newExperience,
+                    ActiveMissionProgress = currentProgress
+                    // ActiveMissionId remains the same to loop
+                };
+            }
+            else
+            {
+                // Mission not complete, just update progress
+                newState = currentState with
+                {
+                    ActiveMissionProgress = currentProgress
+                    // Credits/XP unchanged
+                };
+            }
+            // ------------------------------------
+        }
+
+        // Update the application state
         _updateGameState(newState);
-        // _logAction?.Invoke($"_updateGameState called.");
-        _logAction?.Invoke($"Tick processed. Awarded {CreditsPerTick} credits. Total: {newCredits}");
+        _logAction?.Invoke($"Tick processed.");
     }
 
-    /// <summary>
-    /// Schedules the next tick callback using MainLoop.AddTimeout.
-    /// </summary>
     private void ScheduleTick()
     {
-        if (!_isRunning) return; // Don't schedule if stopped
-
-        // Remove existing timeout just in case (shouldn't be necessary with callback logic)
-        if (_timeoutToken != null)
-        {
-            _mainLoop.RemoveTimeout(_timeoutToken);
-        }
-
+        if (!_isRunning || _mainLoop == null) return;
+        if (_timeoutToken != null) { _mainLoop.RemoveTimeout(_timeoutToken); _timeoutToken = null; }
         var intervalMs = CalculateTickIntervalMs(_getGameState());
         _logAction?.Invoke($"Scheduling next tick in {intervalMs}ms.");
-        _timeoutToken = _mainLoop.AddTimeout(TimeSpan.FromMilliseconds(intervalMs), TickCallback);
+        _timeoutToken = _mainLoop?.AddTimeout(TimeSpan.FromMilliseconds(intervalMs), TickCallback);
     }
 
-    /// <summary>
-    /// The callback function executed by MainLoop for each tick.
-    /// </summary>
-    /// <returns>True if the timer should continue, false otherwise.</returns>
-    private bool TickCallback(MainLoop loop) // Parameter name changed to loop
+    private bool TickCallback(MainLoop loop)
     {
-        if (!_isRunning) return false; // Stop repeating if Stop() was called
-
-        try
-        {
-            ProcessTick();
-        }
-        catch (Exception ex)
-        {
-            // Log exceptions during tick processing
-            _logAction?.Invoke($"!!! ERROR during ProcessTick: {ex.Message}");
-            // Optionally stop the service on error, or just log and continue? Let's log and continue for now.
-            // Stop();
-            // return false; // Stop repeating on error
-        }
-
-        // Reschedule the next tick implicitly by returning true,
-        // MainLoop will use the same timespan. Or recalculate? Let's recalculate.
-        // No, AddTimeout repeats with the *same* timespan if callback returns true.
-        // To change interval, we need to Stop/RemoveTimeout and Start/AddTimeout again?
-        // Let's stick to the simple repeating timer for now. Interval is set once on Start.
-        // We can add logic to recalculate/reschedule in ProcessTick if needed later.
-        return _isRunning; // Return true to keep the timer repeating if still running
+        if (!_isRunning) return false;
+        try { ProcessTick(); }
+        catch (Exception ex) { _logAction?.Invoke($"!!! ERROR during ProcessTick: {ex.Message}"); }
+        return _isRunning;
     }
-
 
     internal double CalculateTickIntervalMs(GameState? state)
     {
         var baseIntervalMs = BaseTickIntervalSeconds * 1000;
-        if (state?.Stats == null)
-        {
-            // _logAction?.Invoke($"State or Stats null, returning base interval: {baseIntervalMs}ms");
-            return baseIntervalMs;
-        }
+        if (state?.Stats == null) { return baseIntervalMs; }
         var hackSpeed = state.Stats.HackSpeed;
-        // _logAction?.Invoke($"Calculating interval with HackSpeed: {hackSpeed}");
         var speedFactor = Math.Clamp(1.0 - (hackSpeed / 100.0), 0.1, 1.0);
         var calculatedInterval = baseIntervalMs * speedFactor;
-        // _logAction?.Invoke($"Calculated speedFactor: {speedFactor}, final interval: {calculatedInterval}ms");
         return calculatedInterval;
     }
 }

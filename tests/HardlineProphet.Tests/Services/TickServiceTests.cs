@@ -1,133 +1,115 @@
-﻿// src/HardlineProphet/Services/TickService.cs
+﻿// tests/HardlineProphet.Tests/Services/TickServiceTests.cs
 using HardlineProphet.Core; // GameConstants
-using HardlineProphet.Core.Interfaces; // ITickService
-using HardlineProphet.Core.Models; // GameState
-using System; // Func, Action, ArgumentNullException, Math, TimeSpan
+using HardlineProphet.Core.Models;
+using HardlineProphet.Services; // Implementation
+using NFluent;
+using System;
+using System.Collections.Generic; // Dictionary
 using Terminal.Gui; // MainLoop
+using Xunit;
+using Xunit.Abstractions;
 
-namespace HardlineProphet.Services;
+namespace HardlineProphet.Tests.Services;
 
-/// <summary>
-/// Implementation of the game's core tick loop service.
-/// </summary>
-public class TickService : ITickService
+public class TickServiceTests
 {
-    // Dependencies provided via constructor
-    private readonly Func<GameState?> _getGameState;
-    private readonly Action<GameState> _updateGameState;
-    private readonly Action<string> _logAction;
-    private readonly MainLoop? _mainLoop; // Changed to nullable MainLoop
+    private readonly ITestOutputHelper _output;
+    private readonly IReadOnlyDictionary<string, Mission> _emptyMissions = new Dictionary<string, Mission>();
+    // Define a test mission with known duration/rewards
+    private readonly Mission _defaultMission = new Mission
+    {
+        Id = "test_mission_01",
+        Name = "Test Mission",
+        DurationTicks = 5, // Make duration easy to test
+        Reward = new MissionReward { Credits = 50, Xp = 10.5 } // Use specific rewards
+    };
+    private readonly IReadOnlyDictionary<string, Mission> _testMissions;
 
-    private bool _isRunning = false;
-    private object? _timeoutToken = null;
+    public TickServiceTests(ITestOutputHelper output)
+    {
+        _output = output;
+        _testMissions = new Dictionary<string, Mission> { { _defaultMission.Id, _defaultMission } };
+    }
 
-    private const int CreditsPerTick = 10;
     private const double BaseTickIntervalSeconds = 2.0;
 
-    // Constructor updated to accept nullable MainLoop
-    public TickService(Func<GameState?> getGameState, Action<GameState> updateGameState, Action<string> logAction, MainLoop? mainLoop = null) // Added default null
+    private TickService CreateDummyTickService(IReadOnlyDictionary<string, Mission>? missions = null)
     {
-        _getGameState = getGameState ?? throw new ArgumentNullException(nameof(getGameState));
-        _updateGameState = updateGameState ?? throw new ArgumentNullException(nameof(updateGameState));
-        _logAction = logAction ?? throw new ArgumentNullException(nameof(logAction));
-        _mainLoop = mainLoop; // Store potentially null MainLoop
+        // Provide default state to avoid null issues in getter if needed by method under test
+        return new TickService(() => new GameState(), _ => { }, _ => { }, missions ?? _emptyMissions, mainLoop: null);
     }
 
-    public bool IsRunning => _isRunning;
-
-    public void Start()
+    [Theory]
+    [InlineData(0, BaseTickIntervalSeconds * 1000)]
+    // ... other InlineData ...
+    [InlineData(150, BaseTickIntervalSeconds * 1000 * 0.1)]
+    [InlineData(-20, BaseTickIntervalSeconds * 1000 * 1.0)]
+    public void CalculateTickIntervalMs_BasedOnHackSpeed_ReturnsCorrectDelay(int hackSpeed, double expectedIntervalMs)
     {
-        if (_isRunning) return;
-        _isRunning = true;
-        _logAction?.Invoke("TickService started. Scheduling first tick...");
-        // Only schedule if MainLoop is available
-        if (_mainLoop != null)
-        {
-            ScheduleTick();
-        }
-        else
-        {
-            _logAction?.Invoke("TickService started but MainLoop is null (likely testing). Tick scheduling skipped.");
-        }
+        // Arrange
+        var gameState = new GameState { Stats = new PlayerStats { HackSpeed = hackSpeed } };
+        var tickService = CreateDummyTickService();
+        // Act
+        double actualIntervalMs = tickService.CalculateTickIntervalMs(gameState);
+        // Assert
+        Check.That(actualIntervalMs).IsCloseTo(expectedIntervalMs, 1e-9);
     }
 
-    public void Stop()
+    [Fact]
+    public void ProcessTick_WhenNoActiveMission_AssignsDefaultMissionAndIncrementsProgress()
     {
-        if (!_isRunning) return;
-        _isRunning = false;
-        // Only remove timeout if MainLoop and token exist
-        if (_mainLoop != null && _timeoutToken != null)
-        {
-            _logAction?.Invoke("TickService stopping. Removing timeout.");
-            _mainLoop.RemoveTimeout(_timeoutToken);
-            _timeoutToken = null;
-        }
-        else
-        {
-            _logAction?.Invoke($"TickService stopping. MainLoop null? {_mainLoop == null}, Timeout token null? {_timeoutToken == null}");
-        }
+        // Arrange
+        var initialState = new GameState { Username = "MissionTester", ActiveMissionId = null, ActiveMissionProgress = 0, Credits = 500, Experience = 100 };
+        GameState? updatedState = null;
+        Func<GameState?> getGameState = () => initialState; Action<GameState> updateGameState = (newState) => updatedState = newState; Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}");
+        var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null);
+        tickService.Start();
+        // Act
+        tickService.ProcessTick();
+        // Assert
+        Check.That(updatedState).IsNotNull();
+        Check.That(updatedState.ActiveMissionId).IsEqualTo(_defaultMission.Id);
+        Check.That(updatedState.ActiveMissionProgress).IsEqualTo(1);
+        Check.That(updatedState.Credits).IsEqualTo(initialState.Credits); // No reward on first tick
+        Check.That(updatedState.Experience).IsEqualTo(initialState.Experience); // No reward on first tick
     }
 
-    public void ProcessTick()
+    // --- New Test ---
+    [Fact]
+    public void ProcessTick_WhenMissionCompletes_AwardsRewardsAndResetsProgress()
     {
-        var currentState = _getGameState();
-        if (currentState == null)
+        // Arrange
+        var initialCredits = 100;
+        var initialXp = 50.0;
+        var initialState = new GameState
         {
-            _logAction?.Invoke($"ProcessTick exiting: currentState is null.");
-            Stop();
-            return;
-        }
-        // _isRunning check is handled by TickCallback/Stop method
+            Username = "MissionCompleter",
+            ActiveMissionId = _defaultMission.Id, // Mission is active
+            ActiveMissionProgress = _defaultMission.DurationTicks - 1, // One tick away from completion
+            Credits = initialCredits,
+            Experience = initialXp
+        };
+        GameState? updatedState = null;
+        Func<GameState?> getGameState = () => initialState;
+        Action<GameState> updateGameState = (newState) => updatedState = newState;
+        Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}");
 
-        _logAction?.Invoke($"Processing tick for {currentState.Username}...");
-        var newCredits = currentState.Credits + CreditsPerTick;
-        var newState = currentState with { Credits = newCredits };
-        _updateGameState(newState);
-        _logAction?.Invoke($"Tick processed. Awarded {CreditsPerTick} credits. Total: {newCredits}");
-    }
+        // Use the service with our defined test mission
+        var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null);
+        tickService.Start();
 
-    private void ScheduleTick()
-    {
-        // Guard against scheduling if stopped OR if mainloop isn't available
-        if (!_isRunning || _mainLoop == null) return;
+        // Act
+        tickService.ProcessTick(); // This tick should complete the mission
 
-        if (_timeoutToken != null)
-        {
-            _mainLoop.RemoveTimeout(_timeoutToken); // Remove previous just in case
-            _timeoutToken = null;
-        }
-
-        var intervalMs = CalculateTickIntervalMs(_getGameState());
-        _logAction?.Invoke($"Scheduling next tick in {intervalMs}ms.");
-        // Use null-conditional just in case, though guarded above
-        _timeoutToken = _mainLoop?.AddTimeout(TimeSpan.FromMilliseconds(intervalMs), TickCallback);
-    }
-
-    private bool TickCallback(MainLoop loop)
-    {
-        if (!_isRunning) return false; // Stop repeating if Stop() was called
-
-        try
-        {
-            ProcessTick();
-        }
-        catch (Exception ex)
-        {
-            _logAction?.Invoke($"!!! ERROR during ProcessTick: {ex.Message}");
-            // Decide if loop should continue on error? For now, yes.
-        }
-        // Return true to keep repeating with the same interval
-        return _isRunning;
-    }
-
-
-    internal double CalculateTickIntervalMs(GameState? state)
-    {
-        var baseIntervalMs = BaseTickIntervalSeconds * 1000;
-        if (state?.Stats == null) { return baseIntervalMs; }
-        var hackSpeed = state.Stats.HackSpeed;
-        var speedFactor = Math.Clamp(1.0 - (hackSpeed / 100.0), 0.1, 1.0);
-        var calculatedInterval = baseIntervalMs * speedFactor;
-        return calculatedInterval;
+        // Assert
+        // This test will FAIL because ProcessTick doesn't implement completion/reward logic yet.
+        Check.That(updatedState).IsNotNull();
+        // Check rewards were added
+        Check.That(updatedState.Credits).IsEqualTo(initialCredits + _defaultMission.Reward.Credits);
+        Check.That(updatedState.Experience).IsEqualTo(initialXp + _defaultMission.Reward.Xp);
+        // Check progress was reset (for looping in M1)
+        Check.That(updatedState.ActiveMissionProgress).IsEqualTo(0);
+        // Check mission ID remains the same (looping)
+        Check.That(updatedState.ActiveMissionId).IsEqualTo(_defaultMission.Id);
     }
 }
