@@ -4,7 +4,7 @@ using HardlineProphet.Core.Interfaces; // IGameStateRepository
 using HardlineProphet.Core.Models; // GameState, PlayerStats
 using System; // NotImplementedException, Environment
 using System.IO; // Path, File, Directory, IOException
-using System.Text.Json; // JsonSerializer, JsonException
+using System.Text.Json; // JsonSerializer, JsonException, JsonSerializerOptions
 using System.Threading.Tasks; // Task
 
 namespace HardlineProphet.Infrastructure.Persistence;
@@ -15,10 +15,16 @@ namespace HardlineProphet.Infrastructure.Persistence;
 public class JsonGameStateRepository : IGameStateRepository
 {
     private readonly string _saveBasePath;
-    private static readonly JsonSerializerOptions _serializerOptions = new()
+    // Options for deserialization (loading)
+    private static readonly JsonSerializerOptions _deserializeOptions = new()
     {
-        PropertyNameCaseInsensitive = true, // Be flexible on load
-        // Add other options as needed (e.g., converters)
+        PropertyNameCaseInsensitive = true,
+    };
+    // Options for serialization (saving) - using WriteIndented for readability
+    private static readonly JsonSerializerOptions _serializeOptions = new()
+    {
+        WriteIndented = true,
+        // PropertyNamingPolicy = JsonNamingPolicy.CamelCase, // Optional: if needed
     };
 
 
@@ -39,26 +45,19 @@ public class JsonGameStateRepository : IGameStateRepository
     private string GetSaveFilePath(string username)
     {
         var sanitizedUsername = string.Join("_", username.Split(Path.GetInvalidFileNameChars()));
-        if (string.IsNullOrWhiteSpace(sanitizedUsername))
-        {
-            sanitizedUsername = "default_user";
-        }
-        Directory.CreateDirectory(_saveBasePath); // Ensure directory exists just before getting path
+        if (string.IsNullOrWhiteSpace(sanitizedUsername)) { sanitizedUsername = "default_user"; }
+        Directory.CreateDirectory(_saveBasePath);
         return Path.Combine(_saveBasePath, $"{sanitizedUsername}.save.json");
     }
 
-    // Marked async now as it performs actual async I/O
     public async Task<GameState> LoadStateAsync(string username)
     {
         var filePath = GetSaveFilePath(username);
-        // Console.WriteLine($"DEBUG: Checking for file at: {filePath}"); // Keep for debugging if needed
 
         if (!File.Exists(filePath))
         {
-            // Console.WriteLine($"DEBUG: File not found. Returning default state.");
-            // File doesn't exist, return a new GameState using constants
             var defaultState = new GameState
-            { /* ... defaults using GameConstants ... */
+            { /* ... defaults ... */
                 Username = username,
                 Level = GameConstants.DefaultStartingLevel,
                 Experience = GameConstants.DefaultStartingExperience,
@@ -66,44 +65,70 @@ public class JsonGameStateRepository : IGameStateRepository
                 Stats = new PlayerStats { HackSpeed = GameConstants.DefaultStartingHackSpeed, Stealth = GameConstants.DefaultStartingStealth, DataYield = GameConstants.DefaultStartingDataYield },
                 Version = GameConstants.CurrentSaveVersion,
             };
-            return defaultState; // No need for Task.FromResult when method is async
+            return defaultState;
         }
         else
         {
-            // Console.WriteLine($"DEBUG: File found. Reading and deserializing.");
-            // File exists, read and deserialize
             try
             {
                 string json = await File.ReadAllTextAsync(filePath);
-                var loadedState = JsonSerializer.Deserialize<GameState>(json, _serializerOptions);
+                var loadedState = JsonSerializer.Deserialize<GameState>(json, _deserializeOptions);
 
                 if (loadedState == null)
                 {
-                    // Handle case where JSON is valid but represents null
                     throw new InvalidDataException($"Failed to deserialize save file content for user '{username}'. Deserialized object was null.");
                 }
-                // TODO: Add checksum validation here later
-                // TODO: Add version migration logic here later
+                // TODO: Add checksum validation here
+                // TODO: Add version migration logic here
 
                 return loadedState;
             }
             catch (JsonException jsonEx)
             {
-                // Throw a specific exception type if JSON is invalid
                 throw new InvalidDataException($"Failed to parse save file for user '{username}'. Invalid JSON.", jsonEx);
             }
             catch (IOException ioEx)
             {
-                // Handle potential file reading errors
                 throw new IOException($"Failed to read save file for user '{username}'.", ioEx);
             }
-            // Catch other potential exceptions if needed
         }
     }
 
-    public Task SaveStateAsync(GameState gameState)
+    // Implement the Save method
+    public async Task SaveStateAsync(GameState gameState)
     {
-        // Still needs implementation
-        throw new NotImplementedException("SaveStateAsync is not yet implemented.");
+        // Ensure gameState and username are valid before proceeding
+        if (gameState == null) throw new ArgumentNullException(nameof(gameState));
+        if (string.IsNullOrWhiteSpace(gameState.Username)) throw new ArgumentException("GameState must have a valid Username to save.", nameof(gameState));
+
+        var filePath = GetSaveFilePath(gameState.Username);
+
+        // TODO: Calculate and set checksum on gameState *before* serializing later
+        // gameState.Checksum = ComputeChecksum(gameState); // Example placeholder
+
+        try
+        {
+            // Serialize the state to JSON
+            string json = JsonSerializer.Serialize(gameState, _serializeOptions);
+
+            // Write the JSON to the file asynchronously, overwriting if it exists
+            await File.WriteAllTextAsync(filePath, json);
+        }
+        catch (JsonException jsonEx)
+        {
+            // Handle potential errors during serialization
+            // Consider logging this error
+            throw new Exception($"Failed to serialize game state for user '{gameState.Username}'.", jsonEx); // Or a custom exception type
+        }
+        catch (IOException ioEx)
+        {
+            // Handle potential errors during file writing
+            // Consider logging this error
+            throw new IOException($"Failed to write save file for user '{gameState.Username}'.", ioEx);
+        }
+        // Catch other potential exceptions if needed
     }
+
+    // TODO: Implement checksum logic later
+    // private string ComputeChecksum(GameState state) { ... }
 }
