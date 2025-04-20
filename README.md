@@ -10,14 +10,14 @@
 
 ## 1. Design Pillars
 
-- **Atmospheric Minimalism**  
-  Keep the interface lean—every element serves a purpose in the cyber‑CLI vibe.  
-- **Player Agency via Choices**  
+- **Atmospheric Minimalism**\
+  Keep the interface lean—every element serves a purpose in the cyber‑CLI vibe.
+- **Player Agency via Choices**\
   Even in an “idle” loop, let the player steer risk versus reward through timely upgrades and special jobs.
-- **Seamless Flow**  
+- **Seamless Flow**\
   Splash → Menu → Idle Progress → Actions → Save/Exit should feel like one uninterrupted sequence.
 
-> [!TIP]  
+> [!TIP]\
 > Use subtle ASCII noise or scan‑lines in backgrounds rather than bulky art assets.
 
 ---
@@ -33,7 +33,7 @@
    - **Accept Special Job** (one‑off mission with modifiers)
 4. **Repeat** until player hits “Logoff” or “Shutdown”
 
-> [!IMPORTANT]  
+> [!IMPORTANT]\
 > If the player takes too long to intervene, introduce “Overheat” or “Trace” penalties to keep tension.
 
 ---
@@ -56,7 +56,7 @@
     "traceRisk": 0.1       // 10% per tick
   }
   ```
-  > [!NOTE]  
+  > [!NOTE]\
   > Keep mission templates in a JSON file so you can hot‑swap new job types.
 
 ### 3.2 Progression & Stats
@@ -73,14 +73,13 @@
 
 - **Currency:** Credits
 - **Shop:**
-
   | Item               | Cost | Effect         |
   | ------------------ | ---- | -------------- |
   | Neural Accelerator | 100  | +10% HackSpeed |
   | Signal Scrambler   | 150  | +5 Stealth     |
   | Data Compressor    | 200  | +15% DataYield |
 
-> [!CAUTION]  
+> [!CAUTION]\
 > Upgrades persist only after “Logoff” or “Shutdown” (auto‑save).
 
 ---
@@ -100,17 +99,17 @@
 
 ### 4.3 Dialogs
 
-- **Logon Dialog:**  
+- **Logon Dialog:**
   - Prompt `Username:` + `Password:` (mask input)
-- **Upgrade Prompt:**  
+- **Upgrade Prompt:**
   - List items, navigate with arrow keys **and mouse clicks**
-- **Special Job Prompt:**  
+- **Special Job Prompt:**
   - Risk/reward summary
 
 > [!IMPORTANT]
 > Developer Mode only: launch with `--dev` flag to enable the **Dev** menu.
 
-- **Dev Menu:**  
+- **Dev Menu:**
   - Appears only in developer mode (`--dev`)
   - Provides data editors: `Edit Items`, `Edit Missions`, etc.
   - Each option opens a Terminal.Gui JSON editor for corresponding files.
@@ -131,12 +130,74 @@ public class GameState
 }
 ```
 
-> [!TIP]  
+> [!TIP]\
 > Store a `Version` field to enable future migrations.
 
 ---
 
 ## 6. Persistence & File I/O
+
+### 6.1 GameState Versioning
+
+To ensure compatibility across future updates, each save file includes a `Version` field:
+
+```csharp
+public int Version { get; set; } = 1;
+```
+
+> [!TIP]
+> Always default to version 1 when deserializing files without a version field.
+
+Version control is managed through a simple enum:
+
+```csharp
+public enum GameStateVersion
+{
+    V1 = 1,
+    V2 = 2
+    // future versions...
+}
+```
+
+**Loading logic:**
+
+```csharp
+public static GameState Load(string path)
+{
+    var json = File.ReadAllText(path);
+    using var doc = JsonDocument.Parse(json);
+    var root = doc.RootElement;
+
+    int version = root.TryGetProperty("Version", out var v)
+        ? v.GetInt32()
+        : 1;
+
+    return version switch
+    {
+        1 => JsonSerializer.Deserialize<GameState>(json)!,
+        // future:
+        // 2 => UpgradeFromV1ToV2(json),
+        _ => throw new NotSupportedException($"Unknown GameState version {version}")
+    };
+}
+```
+
+**On Save:**
+
+```csharp
+gameState.Version = (int)GameStateVersion.V1;
+var json = JsonSerializer.Serialize(gameState, options);
+File.WriteAllText(path, json);
+```
+
+> [!IMPORTANT]
+> When migrating old save formats, always write to a backup or new file. Never overwrite original saves directly.
+
+#### Future Migration Example:
+```csharp
+public static GameState UpgradeFromV1ToV2(string json)
+{
+    var legacy
 
 - **Save File:** `${Username}.save.json`
 - **On Logon:**
@@ -150,7 +211,7 @@ public class GameState
   File.WriteAllText(path, json);
   ```
 
-> [!WARNING]  
+> [!WARNING]\
 > Wrap file reads/writes in try/catch to handle disk errors gracefully.
 
 ---
@@ -172,6 +233,6 @@ public class GameState
 2. **Leaderboard Upload:** Spectre.Console CLI command
 3. **Themed Skins:** Alternate ASCII art palettes
 
-> [!NOTE]  
+> [!NOTE]\
 > This blueprint sits in `README.md`—contributors can jump right in without separate docs.
 
