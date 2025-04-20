@@ -1,4 +1,4 @@
-﻿namespace HardlineProphet.Cli;
+﻿namespace HardlineProphet.UI.Views;
 
 using Terminal.Gui;
 

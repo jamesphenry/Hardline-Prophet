@@ -1,4 +1,4 @@
-﻿namespace HardlineProphet.Cli;
+﻿namespace HardlineProphet.UI.Views;
 
 using System;
 using System.Collections.Generic;
@@ -63,7 +63,7 @@ public static class SplashView
         var tagline = new Label("When Progress Is Your Only Religion.")
         {
             X = Pos.Center(),
-            Y = Pos.Center() + ((FrameTemplate.Length + 2) - FrameTemplate.Length / 2),
+            Y = Pos.Center() + (FrameTemplate.Length + 2 - FrameTemplate.Length / 2),
             ColorScheme = scheme,
             Visible = false
         };

@@ -13,4 +13,12 @@
     <PackageReference Include="Terminal.Gui" Version="1.18.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Core\Interfaces\" />
+    <Folder Include="Infrastructure\Persistence\" />
+    <Folder Include="Data\" />
+    <Folder Include="Services\" />
+    <Folder Include="UI\Dialogs\" />
+  </ItemGroup>
+
 </Project>

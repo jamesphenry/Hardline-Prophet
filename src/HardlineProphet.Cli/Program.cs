@@ -1,5 +1,5 @@
 ﻿// 💾 Cyberpunk Color Scheme
-using HardlineProphet.Cli;
+using HardlineProphet.UI.Views;
 using Terminal.Gui;
 
 Application.Init();
