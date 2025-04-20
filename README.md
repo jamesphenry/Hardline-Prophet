@@ -1,14 +1,16 @@
-# **Hardline Prophet**
+# 🧠 **Hardline Prophet**
 
-## *When Progress Is Your Only Religion.*
+### *💻 When Progress Is Your Only Religion.*
 
 ![Hardline Prophet Logo](images/project1.png)
 
----
+✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦
 
-# Design Blueprint
+# 🌐 Design Blueprint
 
-## 1. Design Pillars
+## 🔹 1. Design Pillars
+
+✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦
 
 - **Atmospheric Minimalism**\
   Keep the interface lean—every element serves a purpose in the cyber‑CLI vibe.
@@ -17,12 +19,14 @@
 - **Seamless Flow**\
   Splash → Menu → Idle Progress → Actions → Save/Exit should feel like one uninterrupted sequence.
 
-> [!TIP]\
+> 💡 **TIP:**\
 > Use subtle ASCII noise or scan‑lines in backgrounds rather than bulky art assets.
 
 ---
 
-## 2. Core Gameplay Loop
+## 🔹 2. Core Gameplay Loop
+
+✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦
 
 1. **Logon** → Load `GameState`
 2. **Idle Progress Cycle**
@@ -33,12 +37,193 @@
    - **Accept Special Job** (one‑off mission with modifiers)
 4. **Repeat** until player hits “Logoff” or “Shutdown”
 
-> [!IMPORTANT]\
+> 🔐 **IMPORTANT:**\
 > If the player takes too long to intervene, introduce “Overheat” or “Trace” penalties to keep tension.
 
 ---
 
 ## 3. Systems Overview
+
+### ⚙️ 3.6 Flavor Events
+
+Flavor events introduce world-building text and optional effects. Triggered during ticks, logins, or milestone completions.
+
+**Example structure:**
+```json
+{
+  "id": "event_001",
+  "trigger": "onTick",
+  "chance": 0.02,
+  "text": "A rogue AI whispers from the void.",
+  "effect": { "stealth": +1 }
+}
+```
+
+- **Trigger Types:** onTick, onLogin, onLevelUp
+- **Effects:** Stat bonuses, temp boosts, trace adjustments, flavor-only
+
+> [!TIP]
+> Events can be defined in JSON and hot-loaded in dev mode. Keep flavor modular for expansion.
+
+### ⚙️ 3.5 Idle Tick Engine Design
+
+#### Tick Flow Diagram
+
+```text
+┌──────────────┐
+│  Start Tick  │
+└──────┬───────┘
+       ▼
+┌────────────────────────────┐
+│ Wait for Tick Interval     │◄────────────┐
+└────────────┬───────────────┘             │
+             ▼                             │
+┌────────────────────────────┐             │
+│ Apply Mission Progress     │             │
+└────────────┬───────────────┘             │
+             ▼                             │
+┌────────────────────────────┐             │
+│ Award Rewards (XP/Credits) │             │
+└────────────┬───────────────┘             │
+             ▼                             │
+┌────────────────────────────┐             │
+│ Append Outcome to Log      │             │
+└────────────┬───────────────┘             │
+             ▼                             │
+┌────────────────────────────┐             │
+│ Check Trace Risk           │             │
+└────────────┬───────────────┘             │
+             ▼                             │
+┌────────────────────────────┐             │
+│ Trigger Flavor Event?      │             │
+└────────────┬───────────────┘             │
+             ▼                             │
+      (Loop or Wait Again) ────────────────┘
+```
+
+The tick engine drives core automation and pacing of the game loop. It should be efficient, interruptible, and deterministic for consistent state management.
+
+- **Tick Interval:** Fixed default (e.g., 2 seconds), modified by `HackSpeed` stat.
+- **Tick Lifecycle:**
+  1. Wait X seconds
+  2. Apply mission progress
+  3. Award rewards (XP, credits)
+  4. Append outcome to log
+  5. Check Trace risk
+  6. Trigger flavor/narrative events (occasionally)
+
+- **Pause Conditions:**
+  - During modal dialogs or menu navigation
+  - Game paused by user or dev override
+
+- **Tick Modifiers:**
+  - `HackSpeed` shortens delay between ticks
+  - Trace accumulation increases urgency
+  - Certain perks can double reward or allow multi-tick execution
+
+- **Trace Mechanics:**
+  - Each tick rolls against mission `traceRisk`
+  - Failure adds to a global `TraceLevel`
+  - High TraceLevel may cause events, failure, or cooldowns
+
+> ⚠️ **CAUTION:**
+> Trace penalties stack across missions and persist until manually cleared or after cooldown windows.
+
+- **Dev Mode Perks:**
+  - Adjust tick rate or inject test missions
+  - Skip cooldowns or force trigger trace for debugging
+
+### 3.4 Player Profile & Perks
+
+> 🧠 **NOTE:**
+> A new player (no save file) will be prompted to set up their profile during the **Logon** process.
+
+### 🧭 Profile Setup Flow (New Player)
+
+#### UI Flow Diagram
+```text
+┌──────────────────────────────┐
+│  New User Detected           │
+└─────────────┬────────────────┘
+              ▼
+┌──────────────────────────────┐
+│ Prompt: Username / Password  │
+└─────────────┬────────────────┘
+              ▼
+┌──────────────────────────────┐
+│ Choose Starting Class        │
+│ (Runner / Broker / Ghost)    │
+└─────────────┬────────────────┘
+              ▼
+┌──────────────────────────────┐
+│ Select One Starting Perk     │
+└─────────────┬────────────────┘
+              ▼
+┌──────────────────────────────┐
+│ Choose Difficulty Modifiers  │
+└─────────────┬────────────────┘
+              ▼
+┌──────────────────────────────┐
+│ Confirm Setup & Save Profile │
+└─────────────┬────────────────┘
+              ▼
+       → Begin Gameplay ←
+```
+- Prompt for: `Username`, `Password`, `Starting Class`
+- Allow choosing one starting perk
+- Assign default stats based on selected class
+
+### Starting Classes
+
+Each class starts with a unique stat allocation and small bonus to differentiate early strategies:
+
+| Class   | Description                         | HackSpeed | Stealth | DataYield | Bonus                      |
+|---------|-------------------------------------|-----------|---------|-----------|----------------------------|
+| Runner | Fast, reckless intrusion             | +10%      | +5      | +0%       | Bonus XP for fast missions |
+| Broker | Profits from clean data resale      | +0%       | +5      | +10%      | Starts with 250 credits    |
+| Ghost  | Stealthy, avoids trace buildup      | +5%       | +15     | +0%       | 10% reduced trace chance   |
+
+> [!TIP]
+> Starting classes only affect initial stats and flavor. All builds can evolve in any direction.
+
+### Starting Perk Pool
+
+New players select one starting perk. These are exclusive early-game benefits:
+
+| Perk Name           | Description                             |
+|---------------------|-----------------------------------------|
+| Trace Dampener      | -25% trace build-up rate                |
+| Stim Surge          | First 5 missions complete instantly     |
+| Seed Capital        | Start with an extra 500 credits         |
+| Soft Override       | First failure is auto-converted to success |
+
+> [!NOTE]
+> Additional perks are unlocked permanently through progression or achievements.
+
+### Permanent Perks
+- Unlocked by reaching XP milestones, mission streaks, or purchasing with premium currency.
+- Examples:
+  - *Black ICE Immunity*: +50% trace resistance
+  - *Quantum Tap*: +5% credits on all missions
+
+- **Permanent Perks:**
+  - Unlocked by reaching XP milestones, mission streaks, or purchasing with premium currency.
+  - Examples:
+    - *Black ICE Immunity*: +50% trace resistance
+    - *Quantum Tap*: +5% credits on all missions
+
+- **Difficulty Modifiers:**
+  - Set during `Logon` or first time profile creation
+  - Includes:
+    - *Trace Mode*: Higher risk of mission failures
+    - *Ironlink*: Save-once-per-session mode
+    - *NoLogoff*: Save only on shutdown
+
+- **Unlockable Game Modes:**
+  - Each tied to profile-level achievements or manual opt-in
+  - Examples:
+    - *Silent Stack*: All upgrades hidden until discovered
+    - *Burst Cycle*: Progress bar resets every 10 minutes for bonus XP
 
 ### 3.1 Mission Generator
 
@@ -86,6 +271,107 @@
 
 ## 4. UI & Flow
 
+### 4.4 Visual UI Mockups
+
+#### Dev Menu (Developer Mode Only)
+```
+┌────────────────────────────┐
+│         Dev Menu           │
+├────────────────────────────┤
+│ [1] Edit Items             │
+│ [2] Edit Missions          │
+│ [3] Edit Flavor Events     │
+│ [4] Toggle Tick Debug      │
+│                            │
+│      [ Return to Game ]    │
+└────────────────────────────┘
+```
+
+#### JSON Editor View (example: Items)
+```
+┌────────────────────────────────────────────┐
+│ Item Editor - items.json                   │
+├────────────────────────────────────────────┤
+│ {                                          │
+│   "id": "neural_accel",                   │
+│   "name": "Neural Accelerator",           │
+│   "effect": "+10% HackSpeed",             │
+│   "cost": 100                             │
+│ }                                          │
+├────────────────────────────────────────────┤
+│ [ Save & Close ]    [ Cancel ]             │
+└────────────────────────────────────────────┘
+```
+
+#### Perks Panel (read-only during game, editable in dev)
+```
+┌───────────────────────────────┐
+│         Perk List             │
+├───────────────────────────────┤
+│ ✓ Trace Dampener              │
+│ ✓ Soft Override               │
+│ ☐ Black ICE Immunity          │
+│ ☐ Quantum Tap                 │
+│                               │
+│       [ Close Panel ]         │
+└───────────────────────────────┘
+```
+
+
+#### Main Menu (Post-Splash)
+```
+╔══════════════════════════════╗
+║         HARDLINE PROPHET     ║
+╠══════════════════════════════╣
+║ [1] Logon                    ║
+║ [2] Logoff                   ║
+║ [3] Shutdown                 ║
+╚══════════════════════════════╝
+```
+
+#### Logon Dialog
+```
+┌──────────────────────────────┐
+│ Username: [______________]   │
+│ Password: [**************]   │
+│                              │
+│      [ Cancel ] [ Logon ]    │
+└──────────────────────────────┘
+```
+
+#### In-Game View (Idle Screen)
+```
+╔════════════════════════════════════╗
+║ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ║ Progress Bar
+╠════════════════════════════════════╣
+║ >> Mission: Data Heist [Success]   ║ Log Window
+║ >> Credits Gained: 60             ║
+║ >> Trace Risk: 0.1                ║
+╠════════════════════════════════════╣
+║ Stats: HS:12 | ST:18 | DY:9       ║ Status Panel
+║ Credits: 540 | XP: 345            ║
+╚════════════════════════════════════╝
+```
+
+#### Upgrade Prompt
+```
+┌────────────────────────────────────┐
+│ Available Upgrades:                │
+│                                    │
+│ [ ] Neural Accelerator (+10% HS)   │
+│ [ ] Signal Scrambler (+5 ST)       │
+│ [ ] Data Compressor (+15% DY)      │
+│                                    │
+│  [ Close ]  [ Purchase Selected ]  │
+└────────────────────────────────────┘
+```
+
+> [!TIP]
+> These visualizations serve as layout guidance for building Terminal.Gui interfaces.
+
+> [!TIP]
+> Modding support is built directly into the **Dev Menu**, allowing for real-time editing of game data via JSON editors.
+
 ### 4.1 Splash & Menu
 
 - Animated neon‑glitch splash (2 s)
@@ -118,6 +404,9 @@
 
 ## 5. Data Model
 
+> [!IMPORTANT]
+> Dev-mode saves should be flagged (`IsDevSave = true`) to avoid mixing test and normal profiles.
+
 ```csharp
 public class GameState
 {
@@ -137,7 +426,86 @@ public class GameState
 
 ## 6. Persistence & File I/O
 
+> [!TIP]
+> Add support for config/preferences files to store last used profile, theme settings, and dev mode toggles.
+
+### 6.2 Save Integrity Checksum
+
+To protect against file tampering or accidental corruption, a checksum field is added to each save file.
+
+```csharp
+public string Checksum { get; set; }
+```
+
+The checksum is calculated on all serialized data *excluding* the `Checksum` property itself:
+
+```csharp
+public static string ComputeChecksum(GameState state)
+{
+    var clone = state with { Checksum = null }; // exclude checksum
+    var json = JsonSerializer.Serialize(clone);
+    using var sha256 = SHA256.Create();
+    var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(json));
+    return Convert.ToBase64String(hash);
+}
+```
+
+**On Save:**
+```csharp
+state.Checksum = ComputeChecksum(state);
+var json = JsonSerializer.Serialize(state, options);
+File.WriteAllText(path, json);
+```
+
+**On Load:**
+```csharp
+var json = File.ReadAllText(path);
+var state = JsonSerializer.Deserialize<GameState>(json);
+if (!devMode && state.Checksum != ComputeChecksum(state))
+    throw new InvalidDataException("Save file integrity check failed.");
+```
+
+> 🚨 **WARNING:**
+> If checksum fails outside `--dev` mode, the load should abort or prompt the player for recovery.
+
+> [!TIP]
+> Inside developer mode, failed checksums will issue a warning but still load the save normally.
+
 ### 6.1 GameState Versioning
+
+### GameStateMigrator Class
+
+Encapsulate all migrations in a single utility class to centralize logic and support testing:
+
+```csharp
+public static class GameStateMigrator
+{
+    public static GameState Migrate(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        int version = root.TryGetProperty("Version", out var v) ? v.GetInt32() : 1;
+
+        return version switch
+        {
+            1 => JsonSerializer.Deserialize<GameState>(json)!,
+            2 => UpgradeFromV1ToV2(json),
+            _ => throw new NotSupportedException($"Unknown GameState version {version}")
+        };
+    }
+
+    public static GameState UpgradeFromV1ToV2(string json)
+    {
+        var legacy = JsonSerializer.Deserialize<GameState>(json)!;
+        legacy.Version = 2;
+        legacy.Stats.TryAdd("Firewall", 0);
+        return legacy;
+    }
+}
+```
+
+> [!TIP]
+> Use `GameStateMigrator.Migrate(json)` instead of calling deserialization directly.
 
 To ensure compatibility across future updates, each save file includes a `Version` field:
 
@@ -197,7 +565,12 @@ File.WriteAllText(path, json);
 ```csharp
 public static GameState UpgradeFromV1ToV2(string json)
 {
-    var legacy
+    var legacy = JsonSerializer.Deserialize<GameState>(json)!;
+    legacy.Version = 2;
+    legacy.Stats.TryAdd("Firewall", 0);
+    return legacy;
+}
+```
 
 - **Save File:** `${Username}.save.json`
 - **On Logon:**
@@ -224,6 +597,70 @@ public static GameState UpgradeFromV1ToV2(string json)
   - Save/load round‑trip fidelity
 - **Integration Tests:**
   - Simulate multiple ticks → verify progress and credits
+
+---
+
+## 7.1 JSON Schema Files
+
+To support editing and validation in Dev Mode, JSON schema definitions should be created for each data type:
+
+### 🧬 Schema: items.schema.json
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Item",
+  "type": "object",
+  "required": ["id", "name", "effect", "cost"],
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "effect": { "type": "string" },
+    "cost": { "type": "integer", "minimum": 0 }
+  }
+}
+```
+
+### Schema: missions.schema.json
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mission",
+  "type": "object",
+  "required": ["id", "type", "duration", "reward", "traceRisk"],
+  "properties": {
+    "id": { "type": "string" },
+    "type": { "type": "string" },
+    "duration": { "type": "integer", "minimum": 1 },
+    "reward": {
+      "type": "object",
+      "properties": {
+        "credits": { "type": "integer" },
+        "xp": { "type": "integer" }
+      },
+      "required": ["credits", "xp"]
+    },
+    "traceRisk": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}
+```
+
+### Schema: perks.schema.json
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Perk",
+  "type": "object",
+  "required": ["name", "description"],
+  "properties": {
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "unlockedByDefault": { "type": "boolean" }
+  }
+}
+```
+
+> [!TIP]
+> Schemas live in `/schemas/` and are auto-linked by the JSON editors for validation and code completion.
 
 ---
 
