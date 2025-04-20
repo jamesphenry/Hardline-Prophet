@@ -23,4 +23,14 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Core\Interfaces\" />
+    <Folder Include="Core\Models\" />
+    <Folder Include="Data\" />
+    <Folder Include="Infrastructure\Persistence\" />
+    <Folder Include="Services\" />
+    <Folder Include="UI\Dialogs\" />
+    <Folder Include="UI\Views\" />
+  </ItemGroup>
+
 </Project>
