@@ -1,16 +1,11 @@
 ﻿namespace HardlineProphet.Core.Models;
 
-public class PlayerStats
+public record PlayerStats
 {
-    public int HackSpeed { get; set; }
-    public int Stealth { get; set; }
-    public int DataYield { get; set; }
+    public int HackSpeed { get; init; } = GameConstants.DefaultStartingHackSpeed;
+    public int Stealth { get; init; } = GameConstants.DefaultStartingStealth;
+    public int DataYield { get; init; } = GameConstants.DefaultStartingDataYield;
 
-    public PlayerStats(int hackSpeed = 0, int stealth = 0, int dataYield = 0)
-    {
-        HackSpeed = hackSpeed;
-        Stealth = stealth;
-        DataYield = dataYield;
-    }
+    public PlayerStats() { }
 }
 
