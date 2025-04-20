@@ -16,7 +16,6 @@
   <ItemGroup>
     <Folder Include="Data\" />
     <Folder Include="Services\" />
-    <Folder Include="UI\Dialogs\" />
   </ItemGroup>
 
 </Project>

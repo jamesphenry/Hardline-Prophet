@@ -2,8 +2,10 @@
 using HardlineProphet.UI.Views;
 using Terminal.Gui;
 
+// --- Main Application Logic ---
 Application.Init();
 
+// Define Color Scheme (as before)
 var cyberpunkScheme = new ColorScheme()
 {
     Normal = Application.Driver.MakeAttribute(Color.BrightGreen, Color.Black),
@@ -13,6 +15,9 @@ var cyberpunkScheme = new ColorScheme()
     Disabled = Application.Driver.MakeAttribute(Color.DarkGray, Color.Black)
 };
 
-var mainWindow = UI.CreateMainWindow(cyberpunkScheme);
-SplashView.Show(cyberpunkScheme, mainWindow);
+var mainWindow = UI.CreateMainWindow(cyberpunkScheme); // UI class needs access to ApplicationState
+
+SplashView.Show(cyberpunkScheme, mainWindow); // SplashView doesn't need state access directly
+
 Application.Run();
+Application.Shutdown(); // Ensure clean shutdown
