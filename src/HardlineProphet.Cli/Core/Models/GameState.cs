@@ -23,5 +23,16 @@ public record GameState
     public string? Checksum { get; init; } = null;
 
     public bool IsDevSave { get; init; } = false;
+    // --- New Mission Tracking Properties ---
+    /// <summary>
+    /// The ID of the currently active mission. Null if no mission active.
+    /// For M1, we'll likely just assign the default one if null.
+    /// </summary>
+    public string? ActiveMissionId { get; init; } = null;
+
+    /// <summary>
+    /// Progress counter for the active mission (e.g., number of ticks completed).
+    /// </summary>
+    public int ActiveMissionProgress { get; init; } = 0;
 }
 
