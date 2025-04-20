@@ -1,8 +1,10 @@
 ﻿// src/HardlineProphet/Infrastructure/Persistence/JsonGameStateRepository.cs
+using HardlineProphet.Core; // GameConstants
 using HardlineProphet.Core.Interfaces; // IGameStateRepository
 using HardlineProphet.Core.Models; // GameState, PlayerStats
-using System; // NotImplementedException
-using System.IO; // Path, File, Directory
+using System; // NotImplementedException, Environment
+using System.IO; // Path, File, Directory, IOException
+using System.Text.Json; // JsonSerializer, JsonException
 using System.Threading.Tasks; // Task
 
 namespace HardlineProphet.Infrastructure.Persistence;
@@ -12,77 +14,96 @@ namespace HardlineProphet.Infrastructure.Persistence;
 /// </summary>
 public class JsonGameStateRepository : IGameStateRepository
 {
-    // TODO: Inject configuration for the base save path instead of hardcoding.
     private readonly string _saveBasePath;
-
-    public JsonGameStateRepository()
+    private static readonly JsonSerializerOptions _serializerOptions = new()
     {
-        // For now, save in a subdirectory of the user's local app data folder.
-        // This is a common place to store application data per user.
-        string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        _saveBasePath = Path.Combine(appDataPath, "HardlineProphet", "Saves");
-
-        // Ensure the base directory exists
-        Directory.CreateDirectory(_saveBasePath);
-    }
+        PropertyNameCaseInsensitive = true, // Be flexible on load
+        // Add other options as needed (e.g., converters)
+    };
 
 
-    /// <summary>
-    /// Gets the full path for a user's save file.
-    /// </summary>
-    /// <param name="username">The username.</param>
-    /// <returns>The full path to the save file.</returns>
-    private string GetSaveFilePath(string username)
+    public JsonGameStateRepository(string? basePath = null)
     {
-        // Basic sanitization to prevent path traversal issues, replace invalid chars.
-        // A more robust sanitization might be needed depending on allowed usernames.
-        var sanitizedUsername = string.Join("_", username.Split(Path.GetInvalidFileNameChars()));
-        if (string.IsNullOrWhiteSpace(sanitizedUsername))
+        if (string.IsNullOrWhiteSpace(basePath))
         {
-            sanitizedUsername = "default_user"; // Handle empty/invalid names
-        }
-        return Path.Combine(_saveBasePath, $"{sanitizedUsername}.save.json");
-    }
-
-    public Task<GameState> LoadStateAsync(string username)
-    {
-        var filePath = GetSaveFilePath(username);
-
-        if (!File.Exists(filePath))
-        {
-            // File doesn't exist, return a new GameState with defaults
-            var defaultState = new GameState
-            {
-                Username = username,
-                Level = 1, // Default level 1
-                Experience = 0.0,
-                Credits = 100, // Default 100 credits
-                Stats = new PlayerStats // Default stats
-                {
-                    HackSpeed = 5,
-                    Stealth = 5,
-                    DataYield = 0
-                },
-                Version = 2, // Current version
-                // ActiveMissionIds and UnlockedPerkIds default to empty lists
-                // Checksum defaults to null
-                // IsDevSave defaults to false
-            };
-            return Task.FromResult(defaultState);
+            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            _saveBasePath = Path.Combine(appDataPath, "HardlineProphet", "Saves");
         }
         else
         {
-            // File *does* exist - we haven't implemented loading it yet!
-            // This part will be handled by the next test(s).
-            throw new NotImplementedException("Loading existing save files is not yet implemented.");
+            _saveBasePath = basePath;
+        }
+        Directory.CreateDirectory(_saveBasePath);
+    }
+
+    private string GetSaveFilePath(string username)
+    {
+        var sanitizedUsername = string.Join("_", username.Split(Path.GetInvalidFileNameChars()));
+        if (string.IsNullOrWhiteSpace(sanitizedUsername))
+        {
+            sanitizedUsername = "default_user";
+        }
+        Directory.CreateDirectory(_saveBasePath); // Ensure directory exists just before getting path
+        return Path.Combine(_saveBasePath, $"{sanitizedUsername}.save.json");
+    }
+
+    // Marked async now as it performs actual async I/O
+    public async Task<GameState> LoadStateAsync(string username)
+    {
+        var filePath = GetSaveFilePath(username);
+        // Console.WriteLine($"DEBUG: Checking for file at: {filePath}"); // Keep for debugging if needed
+
+        if (!File.Exists(filePath))
+        {
+            // Console.WriteLine($"DEBUG: File not found. Returning default state.");
+            // File doesn't exist, return a new GameState using constants
+            var defaultState = new GameState
+            { /* ... defaults using GameConstants ... */
+                Username = username,
+                Level = GameConstants.DefaultStartingLevel,
+                Experience = GameConstants.DefaultStartingExperience,
+                Credits = GameConstants.DefaultStartingCredits,
+                Stats = new PlayerStats { HackSpeed = GameConstants.DefaultStartingHackSpeed, Stealth = GameConstants.DefaultStartingStealth, DataYield = GameConstants.DefaultStartingDataYield },
+                Version = GameConstants.CurrentSaveVersion,
+            };
+            return defaultState; // No need for Task.FromResult when method is async
+        }
+        else
+        {
+            // Console.WriteLine($"DEBUG: File found. Reading and deserializing.");
+            // File exists, read and deserialize
+            try
+            {
+                string json = await File.ReadAllTextAsync(filePath);
+                var loadedState = JsonSerializer.Deserialize<GameState>(json, _serializerOptions);
+
+                if (loadedState == null)
+                {
+                    // Handle case where JSON is valid but represents null
+                    throw new InvalidDataException($"Failed to deserialize save file content for user '{username}'. Deserialized object was null.");
+                }
+                // TODO: Add checksum validation here later
+                // TODO: Add version migration logic here later
+
+                return loadedState;
+            }
+            catch (JsonException jsonEx)
+            {
+                // Throw a specific exception type if JSON is invalid
+                throw new InvalidDataException($"Failed to parse save file for user '{username}'. Invalid JSON.", jsonEx);
+            }
+            catch (IOException ioEx)
+            {
+                // Handle potential file reading errors
+                throw new IOException($"Failed to read save file for user '{username}'.", ioEx);
+            }
+            // Catch other potential exceptions if needed
         }
     }
 
     public Task SaveStateAsync(GameState gameState)
     {
-        // Minimal implementation.
+        // Still needs implementation
         throw new NotImplementedException("SaveStateAsync is not yet implemented.");
     }
-
-    // We will add methods for serialization, checksums etc. here later.
 }
