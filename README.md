@@ -1,20 +1,24 @@
-![Data‑Stream Beacon Logo](images/project1.png)
+# **Hardline Prophet**
 
-**Hardline Prophet**\
-*When Progress Is Your Only Religion.*
+## *When Progress Is Your Only Religion.*
 
-# Hardline Prophet — Design Blueprint
+![Hardline Prophet Logo](images/project1.png)
+
+---
+
+# Design Blueprint
 
 ## 1. Design Pillars
 
-- **Atmospheric Minimalism**\
-  Keep the interface lean—every element serves a purpose in the cyber‑CLI vibe.
-  > [!TIP]\
-  > Use subtle ASCII noise/scan‑lines in backgrounds rather than bulky art assets.
-- **Player Agency via Choices**\
+- **Atmospheric Minimalism**  
+  Keep the interface lean—every element serves a purpose in the cyber‑CLI vibe.  
+- **Player Agency via Choices**  
   Even in an “idle” loop, let the player steer risk versus reward through timely upgrades and special jobs.
-- **Seamless Flow**\
+- **Seamless Flow**  
   Splash → Menu → Idle Progress → Actions → Save/Exit should feel like one uninterrupted sequence.
+
+> [!TIP]  
+> Use subtle ASCII noise or scan‑lines in backgrounds rather than bulky art assets.
 
 ---
 
@@ -29,7 +33,7 @@
    - **Accept Special Job** (one‑off mission with modifiers)
 4. **Repeat** until player hits “Logoff” or “Shutdown”
 
-> [!IMPORTANT]\
+> [!IMPORTANT]  
 > If the player takes too long to intervene, introduce “Overheat” or “Trace” penalties to keep tension.
 
 ---
@@ -52,7 +56,7 @@
     "traceRisk": 0.1       // 10% per tick
   }
   ```
-  > [!NOTE]\
+  > [!NOTE]  
   > Keep mission templates in a JSON file so you can hot‑swap new job types.
 
 ### 3.2 Progression & Stats
@@ -76,7 +80,7 @@
   | Signal Scrambler   | 150  | +5 Stealth     |
   | Data Compressor    | 200  | +15% DataYield |
 
-> [!CAUTION]\
+> [!CAUTION]  
 > Upgrades persist only after “Logoff” or “Shutdown” (auto‑save).
 
 ---
@@ -127,7 +131,7 @@ public class GameState
 }
 ```
 
-> [!TIP]\
+> [!TIP]  
 > Store a `Version` field to enable future migrations.
 
 ---
@@ -146,7 +150,7 @@ public class GameState
   File.WriteAllText(path, json);
   ```
 
-> [!WARNING]\
+> [!WARNING]  
 > Wrap file reads/writes in try/catch to handle disk errors gracefully.
 
 ---
@@ -168,6 +172,6 @@ public class GameState
 2. **Leaderboard Upload:** Spectre.Console CLI command
 3. **Themed Skins:** Alternate ASCII art palettes
 
-> [!NOTE]\
+> [!NOTE]  
 > This blueprint sits in `README.md`—contributors can jump right in without separate docs.
 
