@@ -3,7 +3,7 @@ using HardlineProphet.Core; // GameConstants
 using HardlineProphet.Core.Interfaces; // IGameStateRepository
 using HardlineProphet.Core.Models; // GameState, PlayerStats
 using System; // NotImplementedException, Environment, Convert
-using System.IO; // Path, File, Directory, IOException
+using System.IO; // Path, File, Directory, IOException, InvalidDataException
 using System.Security.Cryptography; // SHA256
 using System.Text; // Encoding
 using System.Text.Json; // JsonSerializer, JsonException, JsonSerializerOptions
@@ -17,23 +17,9 @@ namespace HardlineProphet.Infrastructure.Persistence;
 public class JsonGameStateRepository : IGameStateRepository
 {
     private readonly string _saveBasePath;
-    // Options for deserialization (loading)
-    private static readonly JsonSerializerOptions _deserializeOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-    };
-    // Options for serialization (saving) - using WriteIndented for readability in file
-    private static readonly JsonSerializerOptions _serializeOptionsSave = new()
-    {
-        WriteIndented = true, // Make saved file readable
-        PropertyNamingPolicy = null
-    };
-    // Options for checksum calculation - MUST be consistent and non-indented
-    private static readonly JsonSerializerOptions _serializeOptionsChecksum = new()
-    {
-        WriteIndented = false, // No indentation for checksum consistency
-        PropertyNamingPolicy = null // Ensure exact property names
-    };
+    private static readonly JsonSerializerOptions _deserializeOptions = new() { PropertyNameCaseInsensitive = true, };
+    private static readonly JsonSerializerOptions _serializeOptionsSave = new() { WriteIndented = true, PropertyNamingPolicy = null };
+    private static readonly JsonSerializerOptions _serializeOptionsChecksum = new() { WriteIndented = false, PropertyNamingPolicy = null };
 
 
     public JsonGameStateRepository(string? basePath = null)
@@ -43,10 +29,7 @@ public class JsonGameStateRepository : IGameStateRepository
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             _saveBasePath = Path.Combine(appDataPath, "HardlineProphet", "Saves");
         }
-        else
-        {
-            _saveBasePath = basePath;
-        }
+        else { _saveBasePath = basePath; }
         Directory.CreateDirectory(_saveBasePath);
     }
 
@@ -54,7 +37,7 @@ public class JsonGameStateRepository : IGameStateRepository
     {
         var sanitizedUsername = string.Join("_", username.Split(Path.GetInvalidFileNameChars()));
         if (string.IsNullOrWhiteSpace(sanitizedUsername)) { sanitizedUsername = "default_user"; }
-        Directory.CreateDirectory(_saveBasePath); // Ensure directory exists just before getting path
+        Directory.CreateDirectory(_saveBasePath);
         return Path.Combine(_saveBasePath, $"{sanitizedUsername}.save.json");
     }
 
@@ -64,6 +47,7 @@ public class JsonGameStateRepository : IGameStateRepository
 
         if (!File.Exists(filePath))
         {
+            // Return default state for new user
             var defaultState = new GameState
             { /* ... defaults ... */
                 Username = username,
@@ -77,6 +61,7 @@ public class JsonGameStateRepository : IGameStateRepository
         }
         else
         {
+            // File exists, load and validate
             try
             {
                 string json = await File.ReadAllTextAsync(filePath);
@@ -86,7 +71,26 @@ public class JsonGameStateRepository : IGameStateRepository
                 {
                     throw new InvalidDataException($"Failed to deserialize save file content for user '{username}'. Deserialized object was null.");
                 }
-                // TODO: Add checksum validation here
+
+                // --- Checksum Validation ---
+                if (!string.IsNullOrEmpty(loadedState.Checksum))
+                {
+                    // If a checksum exists in the file, validate it
+                    string expectedChecksum = ComputeChecksum(loadedState);
+                    if (loadedState.Checksum != expectedChecksum)
+                    {
+                        // Checksums don't match, data integrity issue!
+                        throw new InvalidDataException($"Save file integrity check failed for user '{username}' (checksum mismatch).");
+                    }
+                    // Checksums match, proceed.
+                }
+                // else
+                // {
+                //     // Checksum is null or empty in the file.
+                //     // For now, we allow this (e.g., for older saves or saves made without checksum).
+                //     // We could add stricter checks or version-based checks later if needed.
+                // }
+
                 // TODO: Add version migration logic here
 
                 return loadedState;
@@ -99,6 +103,7 @@ public class JsonGameStateRepository : IGameStateRepository
             {
                 throw new IOException($"Failed to read save file for user '{username}'.", ioEx);
             }
+            // Catch InvalidDataException from checksum mismatch re-throw if needed, but it should propagate correctly.
         }
     }
 
@@ -108,43 +113,22 @@ public class JsonGameStateRepository : IGameStateRepository
         if (string.IsNullOrWhiteSpace(gameState.Username)) throw new ArgumentException("GameState must have a valid Username to save.", nameof(gameState));
 
         var filePath = GetSaveFilePath(gameState.Username);
-
-        // Calculate checksum *before* saving
         string calculatedChecksum = ComputeChecksum(gameState);
-
-        // Create a new state instance including the checksum using the 'with' expression
         var stateToSerialize = gameState with { Checksum = calculatedChecksum };
 
         try
         {
-            // Serialize the state *with the checksum* to JSON
             string json = JsonSerializer.Serialize(stateToSerialize, _serializeOptionsSave);
-
-            // Write the JSON to the file asynchronously
             await File.WriteAllTextAsync(filePath, json);
         }
-        catch (JsonException jsonEx)
-        {
-            throw new Exception($"Failed to serialize game state for user '{gameState.Username}'.", jsonEx);
-        }
-        catch (IOException ioEx)
-        {
-            throw new IOException($"Failed to write save file for user '{gameState.Username}'.", ioEx);
-        }
+        catch (JsonException jsonEx) { throw new Exception($"Failed to serialize game state for user '{gameState.Username}'.", jsonEx); }
+        catch (IOException ioEx) { throw new IOException($"Failed to write save file for user '{gameState.Username}'.", ioEx); }
     }
 
-    /// <summary>
-    /// Computes the SHA256 checksum for a GameState object.
-    /// Serializes the state excluding the Checksum property itself.
-    /// </summary>
     private string ComputeChecksum(GameState state)
     {
-        // Use 'with' expression to create a copy with Checksum explicitly null
         var stateForHashing = state with { Checksum = null };
-
-        // Serialize using consistent, non-indented options
         var json = JsonSerializer.Serialize(stateForHashing, _serializeOptionsChecksum);
-
         using var sha256 = SHA256.Create();
         var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(json));
         return Convert.ToBase64String(hashBytes);
