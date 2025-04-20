@@ -695,5 +695,7 @@ To support editing and validation in Dev Mode, JSON schema definitions should be
 > This blueprint sits in `README.md`—contributors can jump right in without separate docs.
 ---
 # Notes
-- move constans so they can me modifiable through dev menu
-- 
+- [ ] move constans so they can me modifiable through dev menu
+
+# Bugs
+- [ ] 
