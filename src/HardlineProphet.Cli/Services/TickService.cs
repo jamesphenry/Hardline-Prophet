@@ -20,7 +20,6 @@ public class TickService : ITickService
     private bool _isRunning = false;
     private object? _timeoutToken = null;
 
-    // private const int CreditsPerTick_Placeholder = 10; // Removed placeholder
     private const double BaseTickIntervalSeconds = 2.0;
 
     public TickService(
@@ -75,43 +74,58 @@ public class TickService : ITickService
             if (!string.IsNullOrEmpty(defaultMissionId))
             {
                 _logAction?.Invoke($"No active/valid mission. Assigning default: {defaultMissionId}");
-                // Assign mission and set progress to 1 (first tick completed)
-                newState = currentState with
-                {
-                    ActiveMissionId = defaultMissionId,
-                    ActiveMissionProgress = 1
-                    // Credits/XP unchanged on assignment
-                };
+                newState = currentState with { ActiveMissionId = defaultMissionId, ActiveMissionProgress = 1 };
                 _logAction?.Invoke($"Mission '{defaultMissionId}' started, progress: 1");
             }
             else
             {
                 _logAction?.Invoke($"WARNING: No active mission and no default missions loaded. Cannot progress.");
-                return; // Exit tick processing if no mission can be assigned
+                return;
             }
         }
-        // 2. If mission is already active, increment progress
+        // 2. If mission is active, increment progress and check for completion
         else
         {
-            // Check if mission definition exists (should unless dictionary is modified)
             if (!_missionDefinitions.TryGetValue(currentMissionId, out var missionDef))
             {
                 _logAction?.Invoke($"ERROR: Could not find definition for active mission ID '{currentMissionId}'. Skipping progress.");
-                return; // Exit if definition missing
+                return;
             }
 
             currentProgress++;
             _logAction?.Invoke($"Mission '{currentMissionId}' progress: {currentProgress}/{missionDef.DurationTicks}");
 
-            // TODO 4: Check for completion (logic to be added/tested next)
-            // if (currentProgress >= missionDef.DurationTicks) { ... award rewards, reset ... }
-
-            // Update state with incremented progress
-            newState = currentState with
+            // --- Check for Mission Completion ---
+            if (currentProgress >= missionDef.DurationTicks)
             {
-                ActiveMissionProgress = currentProgress
-                // Credits/XP unchanged until completion
-            };
+                _logAction?.Invoke($"Mission '{currentMissionId}' completed!");
+                // Calculate new totals
+                var newCredits = currentState.Credits + missionDef.Reward.Credits;
+                var newExperience = currentState.Experience + missionDef.Reward.Xp;
+                // Reset progress for loop (M1 behavior)
+                currentProgress = 0;
+
+                _logAction?.Invoke($"Awarded {missionDef.Reward.Credits} Credits (Total: {newCredits}), {missionDef.Reward.Xp:F1} XP (Total: {newExperience:F1}).");
+
+                // Update state with rewards and reset progress
+                newState = currentState with
+                {
+                    Credits = newCredits,
+                    Experience = newExperience,
+                    ActiveMissionProgress = currentProgress
+                    // ActiveMissionId remains the same to loop
+                };
+            }
+            else
+            {
+                // Mission not complete, just update progress
+                newState = currentState with
+                {
+                    ActiveMissionProgress = currentProgress
+                    // Credits/XP unchanged
+                };
+            }
+            // ------------------------------------
         }
 
         // Update the application state

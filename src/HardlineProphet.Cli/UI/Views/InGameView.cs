@@ -1,5 +1,5 @@
 ﻿// src/HardlineProphet/UI/Views/InGameView.cs
-using HardlineProphet.Core.Models; // GameState, PlayerStats
+using HardlineProphet.Core.Models; // GameState, PlayerStats, Mission
 using Terminal.Gui;
 using System;
 using System.Collections.Generic; // List for LogView source
@@ -16,7 +16,7 @@ public class InGameView : View // Using View instead of Window to embed in MainW
     private Label _xpLabel;
     private Label _creditsLabel;
     private Label _hackSpeedLabel;
-    // Add labels for Stealth, DataYield later if needed for M1 display
+    private Label _missionLabel; // Added label for mission name
 
     private ProgressBar _progressBar;
     private TextView _logView; // Using TextView for simple scrollable log
@@ -36,7 +36,7 @@ public class InGameView : View // Using View instead of Window to embed in MainW
             X = 0,
             Y = 0,
             Width = Dim.Percent(35), // Adjust width as needed
-            Height = Dim.Percent(40) // Adjust height as needed
+            Height = Dim.Percent(50) // Adjust height as needed
         };
 
         _usernameLabel = new Label("Username: ?") { X = 1, Y = 1 };
@@ -48,25 +48,34 @@ public class InGameView : View // Using View instead of Window to embed in MainW
 
         statusFrame.Add(_usernameLabel, _levelLabel, _xpLabel, _creditsLabel, _hackSpeedLabel);
 
-        // --- Progress Bar ---
-        // TODO: Add Mission Name Label later
-        _progressBar = new ProgressBar()
+        // --- Mission Pane ---
+        var missionFrame = new FrameView("Active Mission")
         {
             X = Pos.Right(statusFrame) + 1,
-            Y = 1, // Align near top
+            Y = 0,
             Width = Dim.Fill(1),
-            Height = 1, // ProgressBars are typically 1 line high
+            Height = 5 // Height for label and progress bar
+        };
+
+        _missionLabel = new Label("Mission: None") { X = 1, Y = 1 };
+        _progressBar = new ProgressBar()
+        {
+            X = 1,
+            Y = Pos.Bottom(_missionLabel), // Below mission name
+            Width = Dim.Fill(1), // Fill frame width
+            Height = 1,
             Fraction = 0f,
             ColorScheme = Colors.Base // Or a custom scheme
         };
+        missionFrame.Add(_missionLabel, _progressBar);
 
 
         // --- Log Window ---
         var logFrame = new FrameView("Log")
         {
-            X = Pos.Right(statusFrame) + 1,
-            Y = Pos.Bottom(_progressBar) + 1,
-            Width = Dim.Fill(1),
+            X = 0, // Span full width below status/mission
+            Y = Pos.Bottom(statusFrame), // Position below status frame
+            Width = Dim.Fill(),
             Height = Dim.Fill(1) // Fill remaining height
         };
 
@@ -82,7 +91,7 @@ public class InGameView : View // Using View instead of Window to embed in MainW
         logFrame.Add(_logView);
 
 
-        Add(statusFrame, _progressBar, logFrame);
+        Add(statusFrame, missionFrame, logFrame); // Add all frames
     }
 
     /// <summary>
@@ -92,16 +101,32 @@ public class InGameView : View // Using View instead of Window to embed in MainW
     {
         if (state == null) return; // Do nothing if state is null
 
-        // Update labels - use ?. to handle potential nulls if needed, though state isn't null here
+        // --- Update Status Labels ---
         _usernameLabel.Text = $"Username: {state.Username}";
-        _levelLabel.Text = $"Level: {state.Level}";
-        _xpLabel.Text = $"XP: {state.Experience:F1}"; // Format double
+        _levelLabel.Text = $"Level: {state.Level}"; // Display level (calculation TBD)
+        _xpLabel.Text = $"XP: {state.Experience:F1}"; // Display current XP
         _creditsLabel.Text = $"Credits: {state.Credits}";
-        _hackSpeedLabel.Text = $"Hack Speed: {state.Stats?.HackSpeed ?? 0}"; // Use null conditional for nested Stats
+        _hackSpeedLabel.Text = $"Hack Speed: {state.Stats?.HackSpeed ?? 0}";
 
-        // TODO: Update ProgressBar based on active mission progress later
-        // float progress = CalculateMissionProgress(state); // Placeholder
-        // _progressBar.Fraction = progress;
+        // --- Update Mission Display ---
+        string missionName = "None";
+        float progressFraction = 0f;
+
+        // Check if there's an active mission and definition exists
+        if (!string.IsNullOrEmpty(state.ActiveMissionId) &&
+            ApplicationState.LoadedMissions != null &&
+            ApplicationState.LoadedMissions.TryGetValue(state.ActiveMissionId, out var missionDef))
+        {
+            missionName = missionDef.Name;
+            // Calculate progress fraction, avoid division by zero
+            if (missionDef.DurationTicks > 0)
+            {
+                progressFraction = (float)state.ActiveMissionProgress / missionDef.DurationTicks;
+            }
+        }
+
+        _missionLabel.Text = $"Mission: {missionName}";
+        _progressBar.Fraction = Math.Clamp(progressFraction, 0f, 1f); // Update progress bar
 
         // Mark view for redraw
         SetNeedsDisplay();
@@ -112,22 +137,16 @@ public class InGameView : View // Using View instead of Window to embed in MainW
     /// </summary>
     public void AddLogMessage(string message)
     {
-        // Add timestamp?
         var timestamp = DateTime.Now.ToString("HH:mm:ss");
         _logMessages.Add($"[{timestamp}] {message}");
 
-        // Limit log history size
-        while (_logMessages.Count > MaxLogLines)
-        {
-            _logMessages.RemoveAt(0);
-        }
+        while (_logMessages.Count > MaxLogLines) { _logMessages.RemoveAt(0); }
 
-        // Update TextView content
-        _logView.Text = string.Join("\n", _logMessages);
+        _logView.Text = string.Join(Environment.NewLine, _logMessages); // Use Environment.NewLine
 
-        // Scroll to bottom (needs Application.MainLoop.Invoke for thread safety if called from non-UI thread)
-        // For now, assuming AddLogMessage is called via delegate from TickService which runs on MainLoop
-        _logView.ScrollTo(_logMessages.Count - 1); // Scroll to the last line index
+        // Scroll to bottom - Ensure this runs on the UI thread
+        // Application.MainLoop.Invoke is handled by the caller (UI.cs delegate)
+        _logView.ScrollTo(_logMessages.Count - 1);
 
         SetNeedsDisplay();
     }

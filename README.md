@@ -696,6 +696,7 @@ To support editing and validation in Dev Mode, JSON schema definitions should be
 ---
 # Notes
 - [ ] move constans so they can me modifiable through dev menu
+- [ ] add cheat codes?!?!
 
 # Bugs
 - [ ] when modifying the gamestate the load fails due to checksum mismatch, i know this is going to me common in development, but we need to take into consideration for game updates!
