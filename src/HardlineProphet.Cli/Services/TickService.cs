@@ -20,7 +20,7 @@ public class TickService : ITickService
     private bool _isRunning = false;
     private object? _timeoutToken = null;
 
-    // private const int CreditsPerTick = 10; // Removed placeholder
+    // private const int CreditsPerTick_Placeholder = 10; // Removed placeholder
     private const double BaseTickIntervalSeconds = 2.0;
 
     public TickService(
@@ -65,52 +65,58 @@ public class TickService : ITickService
 
         string? currentMissionId = currentState.ActiveMissionId;
         int currentProgress = currentState.ActiveMissionProgress;
-        string? missionToLog = currentMissionId; // For logging
+        GameState newState; // Declare newState variable
 
         // --- Mission Logic ---
-        // 1. Assign default mission if none is active
+        // 1. Assign default mission if none is active or current is invalid
         if (string.IsNullOrEmpty(currentMissionId) || !_missionDefinitions.ContainsKey(currentMissionId))
         {
             string? defaultMissionId = _missionDefinitions.Keys.FirstOrDefault();
             if (!string.IsNullOrEmpty(defaultMissionId))
             {
-                _logAction?.Invoke($"No active mission or invalid ID '{currentMissionId}'. Assigning default: {defaultMissionId}");
-                currentMissionId = defaultMissionId;
-                currentProgress = 0; // Start progress from 0 for the new mission
-                missionToLog = defaultMissionId; // Update for logging
+                _logAction?.Invoke($"No active/valid mission. Assigning default: {defaultMissionId}");
+                // Assign mission and set progress to 1 (first tick completed)
+                newState = currentState with
+                {
+                    ActiveMissionId = defaultMissionId,
+                    ActiveMissionProgress = 1
+                    // Credits/XP unchanged on assignment
+                };
+                _logAction?.Invoke($"Mission '{defaultMissionId}' started, progress: 1");
             }
             else
             {
                 _logAction?.Invoke($"WARNING: No active mission and no default missions loaded. Cannot progress.");
-                // Optionally stop or just do nothing this tick if no missions exist
                 return; // Exit tick processing if no mission can be assigned
             }
         }
-
-        // 2. Get mission definition (should exist at this point if we didn't return)
-        if (!_missionDefinitions.TryGetValue(currentMissionId!, out var missionDef))
+        // 2. If mission is already active, increment progress
+        else
         {
-            _logAction?.Invoke($"ERROR: Could not find definition for mission ID '{currentMissionId}'. Skipping progress.");
-            return; // Exit if definition somehow missing
+            // Check if mission definition exists (should unless dictionary is modified)
+            if (!_missionDefinitions.TryGetValue(currentMissionId, out var missionDef))
+            {
+                _logAction?.Invoke($"ERROR: Could not find definition for active mission ID '{currentMissionId}'. Skipping progress.");
+                return; // Exit if definition missing
+            }
+
+            currentProgress++;
+            _logAction?.Invoke($"Mission '{currentMissionId}' progress: {currentProgress}/{missionDef.DurationTicks}");
+
+            // TODO 4: Check for completion (logic to be added/tested next)
+            // if (currentProgress >= missionDef.DurationTicks) { ... award rewards, reset ... }
+
+            // Update state with incremented progress
+            newState = currentState with
+            {
+                ActiveMissionProgress = currentProgress
+                // Credits/XP unchanged until completion
+            };
         }
 
-        // 3. Increment progress
-        currentProgress++;
-        _logAction?.Invoke($"Mission '{missionToLog}' progress: {currentProgress}/{missionDef.DurationTicks}");
-
-        // 4. Check for completion (logic to be added/tested next)
-        // if (currentProgress >= missionDef.DurationTicks) { ... award rewards, reset ... }
-
-        // 5. Update Game State
-        var newState = currentState with
-        {
-            ActiveMissionId = currentMissionId, // Update ID if it changed
-            ActiveMissionProgress = currentProgress // Update progress
-                                                    // Credits and XP will be updated on completion later
-        };
+        // Update the application state
         _updateGameState(newState);
-        _logAction?.Invoke($"Tick processed for mission '{missionToLog}'.");
-
+        _logAction?.Invoke($"Tick processed.");
     }
 
     private void ScheduleTick()
