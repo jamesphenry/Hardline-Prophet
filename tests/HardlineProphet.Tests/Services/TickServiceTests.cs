@@ -15,14 +15,7 @@ public class TickServiceTests
 {
     private readonly ITestOutputHelper _output;
     private readonly IReadOnlyDictionary<string, Mission> _emptyMissions = new Dictionary<string, Mission>();
-    // Define a test mission with known duration/rewards
-    private readonly Mission _defaultMission = new Mission
-    {
-        Id = "test_mission_01",
-        Name = "Test Mission",
-        DurationTicks = 5, // Make duration easy to test
-        Reward = new MissionReward { Credits = 50, Xp = 10.5 } // Use specific rewards
-    };
+    private readonly Mission _defaultMission = new Mission { Id = "test_mission_01", Name = "Test Mission", DurationTicks = 5, Reward = new MissionReward { Credits = 50, Xp = 10.5 } };
     private readonly IReadOnlyDictionary<string, Mission> _testMissions;
 
     public TickServiceTests(ITestOutputHelper output)
@@ -35,7 +28,6 @@ public class TickServiceTests
 
     private TickService CreateDummyTickService(IReadOnlyDictionary<string, Mission>? missions = null)
     {
-        // Provide default state to avoid null issues in getter if needed by method under test
         return new TickService(() => new GameState(), _ => { }, _ => { }, missions ?? _emptyMissions, mainLoop: null);
     }
 
@@ -46,35 +38,18 @@ public class TickServiceTests
     [InlineData(-20, BaseTickIntervalSeconds * 1000 * 1.0)]
     public void CalculateTickIntervalMs_BasedOnHackSpeed_ReturnsCorrectDelay(int hackSpeed, double expectedIntervalMs)
     {
-        // Arrange
-        var gameState = new GameState { Stats = new PlayerStats { HackSpeed = hackSpeed } };
-        var tickService = CreateDummyTickService();
-        // Act
-        double actualIntervalMs = tickService.CalculateTickIntervalMs(gameState);
-        // Assert
-        Check.That(actualIntervalMs).IsCloseTo(expectedIntervalMs, 1e-9);
+        // ... (test remains the same) ...
+        var gameState = new GameState { Stats = new PlayerStats { HackSpeed = hackSpeed } }; var tickService = CreateDummyTickService(); double actualIntervalMs = tickService.CalculateTickIntervalMs(gameState); Check.That(actualIntervalMs).IsCloseTo(expectedIntervalMs, 1e-9);
     }
 
     [Fact]
     public void ProcessTick_WhenNoActiveMission_AssignsDefaultMissionAndIncrementsProgress()
     {
-        // Arrange
-        var initialState = new GameState { Username = "MissionTester", ActiveMissionId = null, ActiveMissionProgress = 0, Credits = 500, Experience = 100 };
-        GameState? updatedState = null;
-        Func<GameState?> getGameState = () => initialState; Action<GameState> updateGameState = (newState) => updatedState = newState; Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}");
-        var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null);
-        tickService.Start();
-        // Act
-        tickService.ProcessTick();
-        // Assert
-        Check.That(updatedState).IsNotNull();
-        Check.That(updatedState.ActiveMissionId).IsEqualTo(_defaultMission.Id);
-        Check.That(updatedState.ActiveMissionProgress).IsEqualTo(1);
-        Check.That(updatedState.Credits).IsEqualTo(initialState.Credits); // No reward on first tick
-        Check.That(updatedState.Experience).IsEqualTo(initialState.Experience); // No reward on first tick
+        // ... (test remains the same) ...
+        var initialState = new GameState { Username = "MissionTester", ActiveMissionId = null, ActiveMissionProgress = 0, Credits = 500, Experience = 100 }; GameState? updatedState = null; Func<GameState?> getGameState = () => initialState; Action<GameState> updateGameState = (newState) => updatedState = newState; Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}"); var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null); tickService.Start(); tickService.ProcessTick(); Check.That(updatedState).IsNotNull(); Check.That(updatedState.ActiveMissionId).IsEqualTo(_defaultMission.Id); Check.That(updatedState.ActiveMissionProgress).IsEqualTo(1); Check.That(updatedState.Credits).IsEqualTo(initialState.Credits); Check.That(updatedState.Experience).IsEqualTo(initialState.Experience);
     }
 
-    // --- New Test ---
+    // --- Test for Mission Completion ---
     [Fact]
     public void ProcessTick_WhenMissionCompletes_AwardsRewardsAndResetsProgress()
     {
@@ -94,16 +69,29 @@ public class TickServiceTests
         Action<GameState> updateGameState = (newState) => updatedState = newState;
         Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}");
 
-        // Use the service with our defined test mission
         var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null);
         tickService.Start();
 
-        // Act
-        tickService.ProcessTick(); // This tick should complete the mission
+        Exception caughtException = null!; // Initialize to null
+        try
+        {
+            // Act
+            _output.WriteLine("Calling ProcessTick...");
+            tickService.ProcessTick(); // This tick should complete the mission
+            _output.WriteLine("ProcessTick completed.");
+            // --- NO ASSERTIONS SHOULD BE INSIDE THIS TRY BLOCK ---
+        }
+        catch (Exception ex)
+        {
+            caughtException = ex;
+            _output.WriteLine($"LOG: Caught Exception: {ex.GetType().Name} - {ex.Message}");
+        }
+        // No finally needed as cleanup is handled by base class / test runner
 
         // Assert
-        // This test will FAIL because ProcessTick doesn't implement completion/reward logic yet.
-        Check.That(updatedState).IsNotNull();
+        // These assertions run AFTER the try-catch block
+        Check.That(caughtException).IsNull(); // Check that ProcessTick didn't throw unexpectedly
+        Check.That(updatedState).IsNotNull(); // Check that the update delegate was called
         // Check rewards were added
         Check.That(updatedState.Credits).IsEqualTo(initialCredits + _defaultMission.Reward.Credits);
         Check.That(updatedState.Experience).IsEqualTo(initialXp + _defaultMission.Reward.Xp);

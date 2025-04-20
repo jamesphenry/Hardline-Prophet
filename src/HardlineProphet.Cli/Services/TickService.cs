@@ -64,7 +64,7 @@ public class TickService : ITickService
 
         string? currentMissionId = currentState.ActiveMissionId;
         int currentProgress = currentState.ActiveMissionProgress;
-        GameState newState; // Declare newState variable
+        GameState newState;
 
         // --- Mission Logic ---
         // 1. Assign default mission if none is active or current is invalid
@@ -80,7 +80,7 @@ public class TickService : ITickService
             else
             {
                 _logAction?.Invoke($"WARNING: No active mission and no default missions loaded. Cannot progress.");
-                return;
+                return; // Exit if no mission can be assigned
             }
         }
         // 2. If mission is active, increment progress and check for completion
@@ -89,7 +89,7 @@ public class TickService : ITickService
             if (!_missionDefinitions.TryGetValue(currentMissionId, out var missionDef))
             {
                 _logAction?.Invoke($"ERROR: Could not find definition for active mission ID '{currentMissionId}'. Skipping progress.");
-                return;
+                return; // Exit if definition missing
             }
 
             currentProgress++;
@@ -105,15 +105,15 @@ public class TickService : ITickService
                 // Reset progress for loop (M1 behavior)
                 currentProgress = 0;
 
-                _logAction?.Invoke($"Awarded {missionDef.Reward.Credits} Credits (Total: {newCredits}), {missionDef.Reward.Xp:F1} XP (Total: {newExperience:F1}).");
+                _logAction?.Invoke($"Awarded {missionDef.Reward.Credits} Credits (Total: {newCredits}), {missionDef.Reward.Xp:F1} XP (Total: {newExperience:F1}). Resetting progress.");
 
                 // Update state with rewards and reset progress
                 newState = currentState with
                 {
                     Credits = newCredits,
                     Experience = newExperience,
-                    ActiveMissionProgress = currentProgress
-                    // ActiveMissionId remains the same to loop
+                    ActiveMissionProgress = currentProgress,
+                    ActiveMissionId = currentMissionId // Keep same mission ID to loop
                 };
             }
             else
