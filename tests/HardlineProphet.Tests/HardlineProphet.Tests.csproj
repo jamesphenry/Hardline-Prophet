@@ -28,6 +28,7 @@
     <Folder Include="Core\Models\" />
     <Folder Include="Data\" />
     <Folder Include="Infrastructure\Persistence\" />
+    <Folder Include="Helpers\" />
     <Folder Include="Services\" />
     <Folder Include="UI\Dialogs\" />
     <Folder Include="UI\Views\" />
