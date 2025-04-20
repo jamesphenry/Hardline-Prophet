@@ -3,43 +3,36 @@ using HardlineProphet.Core; // GameConstants
 using HardlineProphet.Core.Interfaces;
 using HardlineProphet.Core.Models;
 using HardlineProphet.Infrastructure.Persistence;
+using HardlineProphet.Tests.Helpers; // Added using for helpers
 using NFluent;
 using System;
 using System.IO;
-using System.Text.Json; // Required for JsonSerializer
-using System.Threading.Tasks; // For Task
-using Xunit; // Test framework
-using Xunit.Abstractions; // For ITestOutputHelper
+using System.Text.Json;
+using System.Threading.Tasks;
+using Xunit;
+using Xunit.Abstractions;
 
 namespace HardlineProphet.Tests.Infrastructure.Persistence.JsonGameStateRepositoryTests;
 
 public class LoadTests
 {
-    // Add output helper if needed for diagnostics visible in test runners
     private readonly ITestOutputHelper _output;
 
-    public LoadTests(ITestOutputHelper output)
-    {
-        _output = output; // Capture output helper
-    }
+    public LoadTests(ITestOutputHelper output) { _output = output; }
 
-
-    // Helper method to get a unique path within a temporary directory
     private string GetTestDirectory()
-    {
+    { /* ... same as before ... */
         string baseTestDir = Path.Combine(Path.GetTempPath(), "HardlineProphetTests");
         string testRunDir = Path.Combine(baseTestDir, Guid.NewGuid().ToString());
-        Directory.CreateDirectory(testRunDir); // Ensure the directory exists
-        _output.WriteLine($"Created test directory: {testRunDir}"); // Log directory creation
+        Directory.CreateDirectory(testRunDir);
+        _output.WriteLine($"Created test directory: {testRunDir}");
         return testRunDir;
     }
-
-    // Cleanup method for the directory
     private void CleanupDirectory(string testRunDir)
-    {
+    { /* ... same as before ... */
         if (!string.IsNullOrEmpty(testRunDir) && Directory.Exists(testRunDir))
         {
-            _output.WriteLine($"Cleaning up test directory: {testRunDir}"); // Log cleanup
+            _output.WriteLine($"Cleaning up test directory: {testRunDir}");
             try { Directory.Delete(testRunDir, true); } catch { /* Ignore cleanup errors */ }
         }
     }
@@ -53,18 +46,14 @@ public class LoadTests
         var testDir = GetTestDirectory();
         var repository = new JsonGameStateRepository(testDir);
         var saveFilePath = Path.Combine(testDir, $"{username}.save.json");
-
         if (File.Exists(saveFilePath)) { File.Delete(saveFilePath); }
         _output.WriteLine($"Ensured file does not exist at: {saveFilePath}");
-
         GameState loadedState = null!;
-
         try
         {
             // Act
             loadedState = await repository.LoadStateAsync(username);
-
-            // Assert
+            // Assert (remains the same)
             Check.That(loadedState).IsNotNull();
             Check.That(loadedState.Username).IsEqualTo(username);
             Check.That(loadedState.Level).IsEqualTo(GameConstants.DefaultStartingLevel);
@@ -80,10 +69,7 @@ public class LoadTests
             Check.That(loadedState.Checksum).IsNull();
             Check.That(loadedState.IsDevSave).IsFalse();
         }
-        finally
-        {
-            CleanupDirectory(testDir);
-        }
+        finally { CleanupDirectory(testDir); }
     }
 
     [Fact]
@@ -93,8 +79,8 @@ public class LoadTests
         var username = "ExistingPlayer";
         var testDir = GetTestDirectory();
         var repository = new JsonGameStateRepository(testDir);
-        var saveFilePath = Path.Combine(testDir, $"{username}.save.json");
 
+        // Create the state we expect to load
         var originalState = new GameState
         { /* ... same as before ... */
             Username = username,
@@ -108,50 +94,41 @@ public class LoadTests
             IsDevSave = true
         };
 
-        var options = new JsonSerializerOptions { WriteIndented = true };
-        var json = JsonSerializer.Serialize(originalState, options);
+        // Use the helper to set up the save file
+        string saveFilePath = await PersistenceTestHelper.SetupExistingSaveFileAsync(testDir, username, originalState);
+        _output.WriteLine($"Test save file created at: {saveFilePath}");
 
-        // --- Start Diagnostics ---
-        _output.WriteLine($"Attempting to write file to: {saveFilePath}");
-        await File.WriteAllTextAsync(saveFilePath, json);
-        _output.WriteLine($"File write attempted.");
-
-        // Add a small delay in case of file system lag/flush issues
-        await Task.Delay(150); // Wait 150ms
-
-        // Explicitly check if the file exists from the test's perspective
-        bool fileActuallyExists = File.Exists(saveFilePath);
-        _output.WriteLine($"File.Exists check result within test: {fileActuallyExists}");
-
-        // Add an assertion to fail fast if the test setup itself failed
-        Check.That(fileActuallyExists).IsTrue(); // <-- NEW ASSERTION
-        // --- End Diagnostics ---
-
+        // Optional: Add delay/existence check if needed, but helper should handle writing reliably
+        // await Task.Delay(150);
+        // bool fileActuallyExists = File.Exists(saveFilePath);
+        // Check.That(fileActuallyExists).IsTrue();
 
         GameState loadedState = null!;
         Exception caughtException = null!;
         try
         {
             // Act
-            _output.WriteLine($"Calling repository.LoadStateAsync for user: {username}");
             loadedState = await repository.LoadStateAsync(username);
-            _output.WriteLine($"repository.LoadStateAsync completed.");
         }
-        catch (Exception ex)
-        {
-            caughtException = ex;
-            _output.WriteLine($"Caught exception: {ex.GetType().Name} - {ex.Message}");
-        }
-        finally
-        {
-            CleanupDirectory(testDir);
-        }
+        catch (Exception ex) { caughtException = ex; } // Catch unexpected exceptions
+        finally { CleanupDirectory(testDir); }
 
-        // Assert
-        // We still expect this to fail with NotImplementedException for now,
-        // but the diagnostic assertion above might fail first if the file isn't written correctly.
-        Check.That(caughtException).IsNotNull().And.IsInstanceOf<NotImplementedException>();
-        Check.That(loadedState).IsNull();
+        // Assert - Check the loaded data matches the original
+        Check.That(caughtException).IsNull();
+        Check.That(loadedState).IsNotNull();
+        Check.That(loadedState.Username).IsEqualTo(originalState.Username);
+        Check.That(loadedState.Level).IsEqualTo(originalState.Level);
+        Check.That(loadedState.Experience).IsEqualTo(originalState.Experience);
+        Check.That(loadedState.Credits).IsEqualTo(originalState.Credits);
+        Check.That(loadedState.Stats).IsNotNull();
+        Check.That(loadedState.Stats.HackSpeed).IsEqualTo(originalState.Stats.HackSpeed);
+        Check.That(loadedState.Stats.Stealth).IsEqualTo(originalState.Stats.Stealth);
+        Check.That(loadedState.Stats.DataYield).IsEqualTo(originalState.Stats.DataYield);
+        Check.That(loadedState.ActiveMissionIds).ContainsExactly(originalState.ActiveMissionIds);
+        Check.That(loadedState.UnlockedPerkIds).ContainsExactly(originalState.UnlockedPerkIds);
+        Check.That(loadedState.Version).IsEqualTo(originalState.Version);
+        Check.That(loadedState.IsDevSave).IsEqualTo(originalState.IsDevSave);
+        Check.That(loadedState.Checksum).IsNull();
     }
 
     // --- Add more tests here later ---
