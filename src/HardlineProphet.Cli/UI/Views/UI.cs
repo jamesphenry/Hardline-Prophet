@@ -1,18 +1,19 @@
 ﻿// src/HardlineProphet/UI/Views/UI.cs
-using HardlineProphet.Core.Models; // GameState, Mission (needed for dictionary type)
+using HardlineProphet.Core.Models; // GameState, Mission
 using HardlineProphet.Services; // TickService
 using HardlineProphet.UI.Dialogs; // LogonDialog
 using Terminal.Gui;
 using System; // MessageBox, Console, Exception, Func, Action
-using System.Collections.Generic; // Added for IReadOnlyDictionary
+using System.Collections.Generic; // IReadOnlyDictionary
 using System.IO; // InvalidDataException, IOException
+using System.Reflection; // Added for Assembly version retrieval
 using System.Threading.Tasks; // Task
 
 namespace HardlineProphet.UI.Views; // Ensure namespace matches folder structure
 
 public static class UI
 {
-    // Keep reference to the main content window to add/remove views
+    // Keep reference to the main content window
     private static Window? _mainWindowContent;
 
     /// <summary>
@@ -22,8 +23,12 @@ public static class UI
     /// <returns>The main content window.</returns>
     public static Window CreateMainWindow(ColorScheme scheme)
     {
+        // --- Get Application Version ---
+        string appVersion = GetApplicationVersion();
+        // -----------------------------
+
         // Create the content window where different views (Logged Off, InGame) will be placed.
-        _mainWindowContent = new Window("Hardline Prophet")
+        _mainWindowContent = new Window($"Hardline Prophet - {appVersion}") // Add version to title
         {
             X = 0,
             Y = 1, // Position below the menu bar
@@ -35,119 +40,19 @@ public static class UI
         // Create the menu bar
         var menu = new MenuBar(new MenuBarItem[]
         {
-            new MenuBarItem("_System", new MenuItem[]
-            {
-                new MenuItem("_Logon", "Log on to the system", async () => // Logon action
+                new MenuBarItem("_System", new MenuItem[]
                 {
-                    // Stop services, clear state before attempting logon
-                    ApplicationState.TickServiceInstance?.Stop();
-                    ApplicationState.TickServiceInstance = null;
-                    ApplicationState.CurrentGameState = null;
-                    ApplicationState.InGameViewInstance = null; // Clear view instance too
-                    AddLoggedOffStatus(); // Show logged off status initially
-
-                    // Show Logon Dialog
-                    var logonDialog = new LogonDialog();
-                    Application.Run(logonDialog); // Run modally
-
-                    // Process if Logon was not canceled
-                    if (!logonDialog.Canceled && _mainWindowContent != null)
+                    new MenuItem("_Logon", "Log on to the system", async () => // Logon action
                     {
-                        var username = logonDialog.GetUsername();
-                        try
-                        {
-                            // --- Load Game State ---
-                            GameState loadedState = await ApplicationState.GameStateRepository.LoadStateAsync(username);
-                            ApplicationState.CurrentGameState = loadedState; // Store loaded state globally
-
-                            // --- Create and Show InGameView ---
-                            _mainWindowContent.RemoveAll(); // Clear "Logged Off" status
-                            ApplicationState.InGameViewInstance = new InGameView { Width = Dim.Fill(), Height = Dim.Fill() };
-                            _mainWindowContent.Add(ApplicationState.InGameViewInstance);
-                            // Perform initial UI update with loaded state
-                            ApplicationState.InGameViewInstance.UpdateState(ApplicationState.CurrentGameState);
-                            // ----------------------------------
-
-
-                            // --- Initialize and Start TickService ---
-                            // Create delegates pointing to our static state and UI instance
-                            Func<GameState?> getGameState = () => ApplicationState.CurrentGameState;
-                            Action<GameState> updateGameState = (newState) => {
-                                ApplicationState.CurrentGameState = newState;
-                                // Update UI view when state changes (Invoke ensures UI thread safety)
-                                Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.UpdateState(newState));
-                            };
-                            Action<string> tickLog = (msg) => {
-                                // Log to UI view (Invoke ensures UI thread safety)
-                                Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.AddLogMessage(msg));
-                            };
-
-                            // Ensure mission definitions are loaded (handle potential null - though Program.cs should init to empty dict)
-                            var missions = ApplicationState.LoadedMissions ?? new Dictionary<string, Mission>();
-
-                            // Instantiate, store, and start the service - CORRECTED ARGUMENTS
-                            ApplicationState.TickServiceInstance = new TickService(
-                                getGameState,           // Arg 1
-                                updateGameState,        // Arg 2
-                                tickLog,                // Arg 3
-                                missions,               // Arg 4 - Pass loaded missions
-                                Application.MainLoop    // Arg 5 - Pass the main loop
-                            );
-                            ApplicationState.TickServiceInstance.Start();
-                            // -----------------------------------------
-
-                            Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.AddLogMessage($"Logon successful for {username}."));
-
-                        }
-                        // Handle specific load/IO errors
-                        catch (Exception ex) when (ex is InvalidDataException || ex is IOException)
-                        {
-                            MessageBox.ErrorQuery("Logon Failed", $"Failed to load save data: {ex.Message}", "OK");
-                            ApplicationState.CurrentGameState = null;
-                            ApplicationState.InGameViewInstance = null;
-                            AddLoggedOffStatus(); // Show logged off status again
-                        }
-                        // Handle any other unexpected errors during logon/setup
-                        catch (Exception ex)
-                        {
-                            MessageBox.ErrorQuery("Logon Failed", $"An unexpected error occurred: {ex.Message}\n{ex.StackTrace}", "OK");
-                            ApplicationState.CurrentGameState = null;
-                            ApplicationState.InGameViewInstance = null;
-                            AddLoggedOffStatus(); // Show logged off status again
-                        }
-                    }
-                }),
-                new MenuItem("_Shutdown", "Save and exit", async () => // Shutdown action
-                {
-                    // Confirm shutdown
-                    var n = MessageBox.Query("Confirm", "Save and Shutdown?", "Yes", "No");
-                    if (n == 0) // User selected Yes
+                        // ... (Logon logic remains the same) ...
+                        ApplicationState.TickServiceInstance?.Stop(); ApplicationState.TickServiceInstance = null; ApplicationState.CurrentGameState = null; ApplicationState.InGameViewInstance = null; AddLoggedOffStatus(); var logonDialog = new LogonDialog(); Application.Run(logonDialog); if (!logonDialog.Canceled && _mainWindowContent != null) { var username = logonDialog.GetUsername(); try { GameState loadedState = await ApplicationState.GameStateRepository.LoadStateAsync(username); ApplicationState.CurrentGameState = loadedState; _mainWindowContent.RemoveAll(); ApplicationState.InGameViewInstance = new InGameView { Width = Dim.Fill(), Height = Dim.Fill() }; _mainWindowContent.Add(ApplicationState.InGameViewInstance); ApplicationState.InGameViewInstance.UpdateState(ApplicationState.CurrentGameState); Func<GameState?> getGameState = () => ApplicationState.CurrentGameState; Action<GameState> updateGameState = (newState) => { ApplicationState.CurrentGameState = newState; Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.UpdateState(newState)); }; Action<string> tickLog = (msg) => { Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.AddLogMessage(msg)); }; var missions = ApplicationState.LoadedMissions ?? new Dictionary<string, Mission>(); ApplicationState.TickServiceInstance = new TickService( getGameState, updateGameState, tickLog, missions, Application.MainLoop ); ApplicationState.TickServiceInstance.Start(); Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.AddLogMessage($"Logon successful for {username}.")); } catch (Exception ex) when (ex is InvalidDataException || ex is IOException) { MessageBox.ErrorQuery("Logon Failed", $"Failed to load save data: {ex.Message}", "OK"); ApplicationState.CurrentGameState = null; ApplicationState.InGameViewInstance = null; AddLoggedOffStatus(); } catch (Exception ex) { MessageBox.ErrorQuery("Logon Failed", $"An unexpected error occurred: {ex.Message}\n{ex.StackTrace}", "OK"); ApplicationState.CurrentGameState = null; ApplicationState.InGameViewInstance = null; AddLoggedOffStatus(); } }
+                    }),
+                    new MenuItem("_Shutdown", "Save and exit", async () => // Shutdown action
                     {
-                         // Stop the tick service first to prevent ticks during save/shutdown
-                         ApplicationState.TickServiceInstance?.Stop();
-                         ApplicationState.TickServiceInstance = null; // Clear instance
-
-                        // Save the current game state if it exists
-                        if (ApplicationState.CurrentGameState != null)
-                        {
-                            try
-                            {
-                                await ApplicationState.GameStateRepository.SaveStateAsync(ApplicationState.CurrentGameState);
-                            }
-                            catch (Exception ex)
-                            {
-                                // Notify user if save fails, but allow quitting anyway
-                                 MessageBox.ErrorQuery("Save Failed", $"Could not save game state: {ex.Message}", "OK");
-                                 var quitAnyway = MessageBox.Query("Save Failed", "Could not save game state. Quit anyway?", "Yes", "No");
-                                 if (quitAnyway == 1) return; // Don't quit if they select No
-                             }
-                        }
-                        // Request the application to stop cleanly
-                        Application.RequestStop();
-                    }
-                }),
-                // Add other top-level menus later (e.g., _Game, _Help)
-            })
+                        // ... (Shutdown logic remains the same) ...
+                        var n = MessageBox.Query("Confirm", "Save and Shutdown?", "Yes", "No"); if (n == 0) { ApplicationState.TickServiceInstance?.Stop(); ApplicationState.TickServiceInstance = null; if (ApplicationState.CurrentGameState != null) { try { await ApplicationState.GameStateRepository.SaveStateAsync(ApplicationState.CurrentGameState); } catch (Exception ex) { MessageBox.ErrorQuery("Save Failed", $"Could not save game state: {ex.Message}", "OK"); var quitAnyway = MessageBox.Query("Save Failed", "Could not save game state. Quit anyway?", "Yes", "No"); if (quitAnyway == 1) return; } } Application.RequestStop(); }
+                    }),
+                })
         });
 
         // Add the menu to the top-level view (it manages its own position)
@@ -167,12 +72,33 @@ public static class UI
     /// </summary>
     private static void AddLoggedOffStatus()
     {
-        if (_mainWindowContent != null)
+        // ... (AddLoggedOffStatus remains the same) ...
+        if (_mainWindowContent != null) { _mainWindowContent.RemoveAll(); _mainWindowContent.Add(new Label("Status: Logged Off. Use System -> Logon.") { X = 1, Y = 1 }); _mainWindowContent.SetNeedsDisplay(); }
+    }
+
+    /// <summary>
+    /// Gets the application version string, typically from assembly info populated by GitVersion.
+    /// </summary>
+    private static string GetApplicationVersion()
+    {
+        try
         {
-            _mainWindowContent.RemoveAll(); // Clear any existing views
-                                            // Add a simple label indicating the logged off state
-            _mainWindowContent.Add(new Label("Status: Logged Off. Use System -> Logon.") { X = 1, Y = 1 });
-            _mainWindowContent.SetNeedsDisplay(); // Ensure redraw
+            var assembly = Assembly.GetEntryAssembly();
+            // GitVersion.MsBuild typically populates AssemblyInformationalVersionAttribute
+            var infoVersion = assembly?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            if (!string.IsNullOrEmpty(infoVersion))
+            {
+                return $"v{infoVersion}"; // Prepend 'v'
+            }
+
+            // Fallback to assembly version if informational version isn't available
+            var assemblyVersion = assembly?.GetName().Version?.ToString();
+            return assemblyVersion ?? "v?.?.?"; // Fallback display
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error getting application version: {ex.Message}");
+            return "v?.?.?"; // Fallback display on error
         }
     }
 }
