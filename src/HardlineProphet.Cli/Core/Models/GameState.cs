@@ -1,38 +1,45 @@
-﻿using System;
+﻿// src/HardlineProphet/Core/Models/GameState.cs
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json.Serialization;
 
 namespace HardlineProphet.Core.Models;
 
+/// <summary>
+/// Represents the complete state of the game for a player.
+/// Using a record for value-based equality.
+/// </summary>
 public record GameState
 {
-    public int Version { get; init; } = GameConstants.CurrentSaveVersion;
+    // Persistence & Core Stats
+    // Assuming CurrentSaveVersion might become 3 after adding profile fields? Let's keep it 2 for now and handle migration.
+    public int Version { get; init; } = GameConstants.CurrentSaveVersion; // Still target V2 initially
     public string Username { get; init; } = string.Empty;
     public int Level { get; init; } = GameConstants.DefaultStartingLevel;
     public double Experience { get; init; } = GameConstants.DefaultStartingExperience;
     public int Credits { get; init; } = GameConstants.DefaultStartingCredits;
-    public PlayerStats Stats { get; init; } = new PlayerStats(); // Use the PlayerStats record
-    public List<string> ActiveMissionIds { get; init; } = new List<string>();
-    public List<string> UnlockedPerkIds { get; init; } = new List<string>();
-
-    // Checksum needs to be mutable if calculated *after* initial state creation/load
-    // Or we create a new record instance when calculating checksum before save.
-    // Let's keep it init for now, and handle checksum calculation during save later.
+    public PlayerStats Stats { get; init; } = new PlayerStats();
+    public List<string> ActiveMissionIds { get; init; } = new List<string>(); // Keep for now, maybe simplify later
+    public List<string> UnlockedPerkIds { get; init; } = new List<string>(); // For permanent perks later
     public string? Checksum { get; init; } = null;
-
     public bool IsDevSave { get; init; } = false;
-    // --- New Mission Tracking Properties ---
-    /// <summary>
-    /// The ID of the currently active mission. Null if no mission active.
-    /// For M1, we'll likely just assign the default one if null.
-    /// </summary>
+
+    // Mission Tracking
     public string? ActiveMissionId { get; init; } = null;
+    public int ActiveMissionProgress { get; init; } = 0;
+
+    // --- New Player Profile Properties ---
+    /// <summary>
+    /// The starting class selected by the player.
+    /// Null if profile setup not complete or for older saves before migration.
+    /// </summary>
+    public PlayerClass? SelectedClass { get; init; } = null; // Default to null
 
     /// <summary>
-    /// Progress counter for the active mission (e.g., number of ticks completed).
+    /// The IDs of the starting perks selected/granted during profile setup.
+    /// (Using string IDs for flexibility, could be enum if perks are fixed).
     /// </summary>
-    public int ActiveMissionProgress { get; init; } = 0;
-}
+    public List<string> SelectedStartingPerkIds { get; init; } = new List<string>(); // Default to empty list
+                                                                                     // ------------------------------------
 
+    // TODO: Add Difficulty Modifiers property later
+}
