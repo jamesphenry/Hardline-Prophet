@@ -39,7 +39,7 @@ jobs:
         # IMPORTANT: Adjust the path to your main project's .csproj file if needed!
         # IMPORTANT: Adjust the output name if your assembly name is different!
         run: |
-          dotnet publish ./src/HardlineProphet.Cli/HardlineProphet.Cli.csproj `
+          dotnet publish ./src/HardlineProphet.Cli/HardlineProphet.csproj `
             -c Release `
             --runtime win-x64 `
             --self-contained true `
