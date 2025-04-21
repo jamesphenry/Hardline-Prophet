@@ -1,117 +1,69 @@
 ﻿// src/HardlineProphet/UI/Views/UI.cs
-using HardlineProphet.Core; // GameConstants
-using HardlineProphet.Core.Extensions; // GetDefaultStatsForClass, etc.
-using HardlineProphet.Core.Models; // GameState, PlayerClass, Mission
+using HardlineProphet.Core.Models; // GameState, Mission
 using HardlineProphet.Services; // TickService
-using HardlineProphet.UI.Dialogs; // LogonDialog, ClassSelectionDialog, PerkSelectionDialog
+using HardlineProphet.UI.Dialogs; // LogonDialog, ClassSelectionDialog, PerkSelectionDialog, ShopDialog
 using Terminal.Gui;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
+using System; // MessageBox, Console, Exception, Func, Action
+using System.Collections.Generic; // IReadOnlyDictionary
+using System.IO; // InvalidDataException, IOException
+using System.Reflection; // Assembly version retrieval
 using System.Threading.Tasks;
+using HardlineProphet.Core.Extensions; // Task
 
-namespace HardlineProphet.UI.Views;
+namespace HardlineProphet.UI.Views; // Ensure namespace matches folder structure
 
 public static class UI
 {
+    // Keep reference to the main content window
     private static Window? _mainWindowContent;
 
+    /// <summary>
+    /// Creates the main application window, including menu bar and content area.
+    /// </summary>
+    /// <param name="scheme">The color scheme to use.</param>
+    /// <returns>The main content window.</returns>
     public static Window CreateMainWindow(ColorScheme scheme)
     {
         string appVersion = GetApplicationVersion();
         _mainWindowContent = new Window($"Hardline Prophet - {appVersion}")
         { X = 0, Y = 1, Width = Dim.Fill(), Height = Dim.Fill(1), ColorScheme = scheme };
 
+        // Create the menu bar
         var menu = new MenuBar(new MenuBarItem[]
         {
                 new MenuBarItem("_System", new MenuItem[]
                 {
-                    new MenuItem("_Logon", "Log on to the system", async () =>
+                    new MenuItem("_Logon", "Log on to the system", async () => { /* ... Logon logic ... */ ApplicationState.TickServiceInstance?.Stop(); ApplicationState.TickServiceInstance = null; ApplicationState.CurrentGameState = null; ApplicationState.InGameViewInstance = null; AddLoggedOffStatus(); var logonDialog = new LogonDialog(); Application.Run(logonDialog); if (!logonDialog.Canceled && _mainWindowContent != null) { var username = logonDialog.GetUsername(); try { GameState loadedState = await ApplicationState.GameStateRepository!.LoadStateAsync(username); GameState finalState; if (loadedState.SelectedClass == null || loadedState.SelectedClass == PlayerClass.Undefined) { Application.MainLoop.Invoke(() => AddSetupStatus("New profile detected. Performing setup...")); var classDialog = new ClassSelectionDialog(); Application.Run(classDialog); if (classDialog.Canceled) { AddLoggedOffStatus(); return; } var chosenClass = classDialog.SelectedClass; var perkDialog = new PerkSelectionDialog(); Application.Run(perkDialog); if (perkDialog.Canceled) { AddLoggedOffStatus(); return; } var chosenPerkId = perkDialog.SelectedPerkId; PlayerStats startingStats = GameStateExtensions.GetDefaultStatsForClass(chosenClass); int startingCredits = GameStateExtensions.GetStartingCreditsForClass(chosenClass, chosenPerkId); finalState = loadedState with { SelectedClass = chosenClass, SelectedStartingPerkIds = new List<string> { chosenPerkId }, Stats = startingStats, Credits = startingCredits }; Application.MainLoop.Invoke(() => AddSetupStatus($"Class '{chosenClass}', Perk '{chosenPerkId}' selected. Setup complete.")); await Task.Delay(500); } else { finalState = loadedState; } ApplicationState.CurrentGameState = finalState; _mainWindowContent.RemoveAll(); ApplicationState.InGameViewInstance = new InGameView { Width = Dim.Fill(), Height = Dim.Fill() }; _mainWindowContent.Add(ApplicationState.InGameViewInstance); ApplicationState.InGameViewInstance.UpdateState(ApplicationState.CurrentGameState); Func<GameState?> getGameState = () => ApplicationState.CurrentGameState; Action<GameState> updateGameState = (newState) => { ApplicationState.CurrentGameState = newState; Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.UpdateState(newState)); }; Action<string> tickLog = (msg) => { Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.AddLogMessage(msg)); }; var missions = ApplicationState.LoadedMissions ?? new Dictionary<string, Mission>(); ApplicationState.TickServiceInstance = new TickService( getGameState, updateGameState, tickLog, missions, Application.MainLoop ); ApplicationState.TickServiceInstance.Start(); Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.AddLogMessage($"Logon successful for {username}.")); } catch (Exception ex) when (ex is InvalidDataException || ex is IOException) { MessageBox.ErrorQuery("Logon Failed", $"Failed to load save data: {ex.Message}", "OK"); ApplicationState.CurrentGameState = null; ApplicationState.InGameViewInstance = null; AddLoggedOffStatus(); } catch (Exception ex) { MessageBox.ErrorQuery("Logon Failed", $"An unexpected error occurred: {ex.Message}\n{ex.StackTrace}", "OK"); ApplicationState.CurrentGameState = null; ApplicationState.InGameViewInstance = null; AddLoggedOffStatus(); } } }),
+                    new MenuItem("_Shutdown", "Save and exit", async () => { /* ... Shutdown logic ... */ var n = MessageBox.Query("Confirm", "Save and Shutdown?", "Yes", "No"); if (n == 0) { ApplicationState.TickServiceInstance?.Stop(); ApplicationState.TickServiceInstance = null; if (ApplicationState.CurrentGameState != null) { try { await ApplicationState.GameStateRepository!.SaveStateAsync(ApplicationState.CurrentGameState); } catch (Exception ex) { MessageBox.ErrorQuery("Save Failed", $"Could not save game state: {ex.Message}", "OK"); var quitAnyway = MessageBox.Query("Save Failed", "Could not save game state. Quit anyway?", "Yes", "No"); if (quitAnyway == 1) return; } } Application.RequestStop(); } }),
+                }),
+                // --- New Actions Menu ---
+                new MenuBarItem("_Actions", new MenuItem[] // New top-level menu
+                {
+                    new MenuItem("_Shop", "Purchase cyberdeck upgrades", () => // Shop action
                     {
-                        // Stop services, clear state
-                        ApplicationState.TickServiceInstance?.Stop(); ApplicationState.TickServiceInstance = null; ApplicationState.CurrentGameState = null; ApplicationState.InGameViewInstance = null; AddLoggedOffStatus();
-
-                        var logonDialog = new LogonDialog();
-                        Application.Run(logonDialog);
-
-                        if (!logonDialog.Canceled && _mainWindowContent != null)
+                        // Ensure player is logged in
+                        if (ApplicationState.CurrentGameState == null || ApplicationState.InGameViewInstance == null)
                         {
-                            var username = logonDialog.GetUsername();
-                            try
-                            {
-                                // --- Load or Get Default State ---
-                                GameState loadedState = await ApplicationState.GameStateRepository!.LoadStateAsync(username);
-                                GameState finalState; // State after potential setup
+                            MessageBox.ErrorQuery("Error", "You must be logged on to access the shop.", "OK");
+                            return;
+                        }
 
-                                // --- New Player Setup Flow ---
-                                // Check if loaded state indicates a new player (e.g., class not set yet, or could add an IsNew flag from Load)
-                                if (loadedState.SelectedClass == null || loadedState.SelectedClass == PlayerClass.Undefined)
-                                {
-                                    Application.MainLoop.Invoke(() => AddSetupStatus("New profile detected. Performing setup..."));
+                        // Create and show the shop dialog
+                        var shopDialog = new ShopDialog();
+                        Application.Run(shopDialog);
 
-                                    // 1. Select Class
-                                    var classDialog = new ClassSelectionDialog();
-                                    Application.Run(classDialog);
-                                    if (classDialog.Canceled) { AddLoggedOffStatus(); return; } // Abort if canceled
-                                    var chosenClass = classDialog.SelectedClass;
-
-                                    // 2. Select Perk
-                                    var perkDialog = new PerkSelectionDialog();
-                                    Application.Run(perkDialog);
-                                    if (perkDialog.Canceled) { AddLoggedOffStatus(); return; } // Abort if canceled
-                                    var chosenPerkId = perkDialog.SelectedPerkId;
-
-                                    // 3. Apply Defaults/Choices using helper extensions
-                                    PlayerStats startingStats = GameStateExtensions.GetDefaultStatsForClass(chosenClass);
-                                    int startingCredits = GameStateExtensions.GetStartingCreditsForClass(chosenClass, chosenPerkId);
-
-                                    // 4. Create final state using 'with' on the loaded (default) state
-                                    finalState = loadedState with {
-                                        SelectedClass = chosenClass,
-                                        SelectedStartingPerkIds = new List<string> { chosenPerkId }, // Store selected perk ID
-                                        Stats = startingStats,
-                                        Credits = startingCredits
-                                        // Ensure Version/Checksum are handled correctly by SaveStateAsync later
-                                    };
-                                     Application.MainLoop.Invoke(() => AddSetupStatus($"Class '{chosenClass}', Perk '{chosenPerkId}' selected. Setup complete."));
-                                     await Task.Delay(500); // Brief pause to see message
-                                }
-                                else
-                                {
-                                    // Existing player, use the loaded state directly
-                                    finalState = loadedState;
-                                }
-                                // -------------------------
-
-                                // Store the final state (either newly setup or loaded existing)
-                                ApplicationState.CurrentGameState = finalState;
-
-                                // --- Create and Show InGameView ---
-                                _mainWindowContent.RemoveAll();
-                                ApplicationState.InGameViewInstance = new InGameView { Width = Dim.Fill(), Height = Dim.Fill() };
-                                _mainWindowContent.Add(ApplicationState.InGameViewInstance);
-                                ApplicationState.InGameViewInstance.UpdateState(ApplicationState.CurrentGameState);
-                                // ----------------------------------
-
-                                // --- Initialize and Start TickService ---
-                                Func<GameState?> getGameState = () => ApplicationState.CurrentGameState;
-                                Action<GameState> updateGameState = (newState) => { ApplicationState.CurrentGameState = newState; Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.UpdateState(newState)); };
-                                Action<string> tickLog = (msg) => { Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.AddLogMessage(msg)); };
-                                var missions = ApplicationState.LoadedMissions ?? new Dictionary<string, Mission>();
-                                ApplicationState.TickServiceInstance = new TickService( getGameState, updateGameState, tickLog, missions, Application.MainLoop );
-                                ApplicationState.TickServiceInstance.Start();
-                                // -----------------------------------------
-
-                                Application.MainLoop.Invoke(() => ApplicationState.InGameViewInstance?.AddLogMessage($"Logon successful for {username}."));
-
-                            }
-                            catch (Exception ex) when (ex is InvalidDataException || ex is IOException) { /* ... error handling ... */ MessageBox.ErrorQuery("Logon Failed", $"Failed to load save data: {ex.Message}", "OK"); ApplicationState.CurrentGameState = null; ApplicationState.InGameViewInstance = null; AddLoggedOffStatus(); }
-                            catch (Exception ex) { /* ... error handling ... */ MessageBox.ErrorQuery("Logon Failed", $"An unexpected error occurred: {ex.Message}\n{ex.StackTrace}", "OK"); ApplicationState.CurrentGameState = null; ApplicationState.InGameViewInstance = null; AddLoggedOffStatus(); }
+                        // After the dialog closes, check if a purchase was made
+                        if (shopDialog.PurchaseMade)
+                        {
+                             // If yes, refresh the main game view to show updated stats/credits
+                             ApplicationState.InGameViewInstance.UpdateState(ApplicationState.CurrentGameState);
+                             // Optional: Log purchase in main log?
+                             // ApplicationState.InGameViewInstance.AddLogMessage("Accessed shop.");
                         }
                     }),
-                    new MenuItem("_Shutdown", "Save and exit", async () => { /* ... Shutdown logic ... */ var n = MessageBox.Query("Confirm", "Save and Shutdown?", "Yes", "No"); if (n == 0) { ApplicationState.TickServiceInstance?.Stop(); ApplicationState.TickServiceInstance = null; if (ApplicationState.CurrentGameState != null) { try { await ApplicationState.GameStateRepository!.SaveStateAsync(ApplicationState.CurrentGameState); } catch (Exception ex) { MessageBox.ErrorQuery("Save Failed", $"Could not save game state: {ex.Message}", "OK"); var quitAnyway = MessageBox.Query("Save Failed", "Could not save game state. Quit anyway?", "Yes", "No"); if (quitAnyway == 1) return; } } Application.RequestStop(); } }),
+                    // Add other actions later (e.g., View Missions, View Stats/Perks)
                 })
+            // ----------------------
         });
 
         Application.Top.Add(menu);
@@ -122,19 +74,14 @@ public static class UI
 
     private static void AddLoggedOffStatus()
     {
+        // ... (AddLoggedOffStatus remains the same) ...
         if (_mainWindowContent != null) { _mainWindowContent.RemoveAll(); _mainWindowContent.Add(new Label("Status: Logged Off. Use System -> Logon.") { X = 1, Y = 1 }); _mainWindowContent.SetNeedsDisplay(); }
     }
 
-    // Helper to show temporary status during setup
     private static void AddSetupStatus(string message)
     {
-        if (_mainWindowContent != null)
-        {
-            _mainWindowContent.RemoveAll();
-            _mainWindowContent.Add(new Label(message) { X = 1, Y = 1 });
-            _mainWindowContent.SetNeedsDisplay();
-            Application.Refresh(); // Force refresh to show message immediately
-        }
+        // ... (AddSetupStatus remains the same) ...
+        if (_mainWindowContent != null) { _mainWindowContent.RemoveAll(); _mainWindowContent.Add(new Label(message) { X = 1, Y = 1 }); _mainWindowContent.SetNeedsDisplay(); Application.Refresh(); }
     }
 
     private static string GetApplicationVersion()
