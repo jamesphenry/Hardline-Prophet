@@ -12,26 +12,37 @@ using System.Linq; // ToDictionary
 using System.Text.Json; // JsonSerializer, JsonException
 
 // --- Application State ---
+// --- Application State ---
 public static class ApplicationState
 {
+    // Existing properties
     public static GameState? CurrentGameState { get; set; }
-    public static IGameStateRepository GameStateRepository { get; } = new JsonGameStateRepository();
     public static ITickService? TickServiceInstance { get; set; }
     public static InGameView? InGameViewInstance { get; set; }
-
-    // Add storage for loaded mission definitions
-    /// <summary>
-    /// Read-only dictionary of loaded mission definitions, keyed by Mission ID.
-    /// Null if loading failed or hasn't occurred.
-    /// </summary>
-    // Corrected: Changed private set to internal set
     public static IReadOnlyDictionary<string, Mission>? LoadedMissions { get; internal set; }
+    public static string DefaultMissionId => LoadedMissions?.Keys.FirstOrDefault() ?? string.Empty;
+
+    // New properties for Dev Mode and Service Initialization
+    public static bool IsDevMode { get; private set; } = false; // Default to false
+    public static IGameStateRepository? GameStateRepository { get; private set; } // Make nullable, init in method
 
     /// <summary>
-    /// Helper property to get the ID of the first loaded mission (used as default for M1).
-    /// Returns empty string if no missions are loaded.
+    /// Initializes application-level services after configuration (like dev mode) is known.
     /// </summary>
-    public static string DefaultMissionId => LoadedMissions?.Keys.FirstOrDefault() ?? string.Empty;
+    public static void InitializeServices(bool isDevMode)
+    {
+        IsDevMode = isDevMode;
+        Console.WriteLine($"Initializing services... Dev Mode: {IsDevMode}");
+
+        // Create repository instance here, passing dev mode status
+        // NOTE: This will require updating the JsonGameStateRepository constructor later
+        // For now, we use the existing constructor which ignores the flag.
+        // TODO: Update JsonGameStateRepository constructor to accept isDevMode
+        GameStateRepository = new JsonGameStateRepository(); // Pass isDevMode later: new JsonGameStateRepository(IsDevMode);
+
+        // Initialize other services if needed...
+        GameStateRepository = new JsonGameStateRepository(isDevMode: IsDevMode); // Pass isDevMode explicitly
+    }
 }
 
 // --- Main Application Logic ---
@@ -40,6 +51,17 @@ public static class Program
     // Using explicit Main method structure to ensure loading happens before GUI init
     public static void Main(string[] args)
     {
+        // --- Check for Dev Mode ---
+        bool isDevMode = args.Contains("--dev", StringComparer.OrdinalIgnoreCase);
+        if (isDevMode)
+        {
+            Console.WriteLine("--- DEVELOPER MODE ACTIVE ---");
+        }
+
+        // --- Initialize Services ---
+        // Pass dev mode status for services to use
+        ApplicationState.InitializeServices(isDevMode);
+
         // --- Load Definitions ---
         // Load missions first, as other parts might depend on them
         LoadMissionDefinitions();
