@@ -6,6 +6,10 @@
 
 ✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦
 
+[![Create Release Executable](https://github.com/jamesphenry/Hardline-Prophet/actions/workflows/release.yml/badge.svg)](https://github.com/jamesphenry/Hardline-Prophet/actions/workflows/release.yml)
+
+✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦✦
+
 ## 🚀 Project Milestones
 
 ### Milestone 1: Core Loop Proof-of-Concept
