@@ -24,20 +24,28 @@ jobs:
           dotnet-version: '9.0.x' # Use the .NET version your project targets
 
       # 3. Install and run GitVersion to determine the version
-      # Uses the official GitTools actions
       - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v1.1.1 # Use specific stable version
+        uses: gittools/actions/gitversion/setup@v1.1.1
         with:
-          versionSpec: '5.x' # Use GitVersion 5.x range
+          versionSpec: '5.x'
 
       - name: Determine Version
-        id: gitversion # Set an ID to reference outputs like steps.gitversion.outputs.semVer
+        id: gitversion # Set an ID to reference outputs
         uses: gittools/actions/gitversion/execute@v1.1.1
 
-      # 4. Build and Publish the application
+      # 4. Restore dependencies (Good practice before build/test)
+      - name: Restore dependencies
+        run: dotnet restore
+
+      # 5. Run Tests (Added Step)
+      # This will run tests for all projects in the solution found by 'dotnet test'
+      # It uses the Release configuration to match the publish step.
+      - name: Run Tests
+        run: dotnet test --configuration Release --no-restore # Use --no-restore as dependencies were just restored
+
+      # 6. Build and Publish the application (Only runs if tests pass)
       - name: Publish Application
-        # IMPORTANT: Adjust the path to your main project's .csproj file if needed!
-        # IMPORTANT: Adjust the output name if your assembly name is different!
+        # Using the corrected project path based on your selection
         run: |
           dotnet publish ./src/HardlineProphet.Cli/HardlineProphet.csproj `
             -c Release `
@@ -45,31 +53,25 @@ jobs:
             --self-contained true `
             -p:PublishSingleFile=true `
             -p:Version=${{ steps.gitversion.outputs.assemblySemVer }} `
-            -o ./publish
-        # Explanation of dotnet publish options:
-        # -c Release: Build in Release configuration
-        # --runtime win-x64: Target Windows 64-bit
-        # --self-contained true: Include .NET runtime in the output
-        # -p:PublishSingleFile=true: Package into a single .exe file
-        # -p:Version=... : Set the assembly version using GitVersion output
-        # -o ./publish: Output directory
+            -o ./publish `
+            --no-restore # Dependencies were restored earlier
+        # ... (options explanation) ...
 
-      # 5. Create GitHub Release and Upload Artifact
+      # 7. Create GitHub Release and Upload Artifact (Only runs if publish succeeds)
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v2 # Popular action for creating releases
+        uses: softprops/action-gh-release@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Use the default GitHub token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ steps.gitversion.outputs.majorMinorPatch }} # Tag the release (e.g., v0.1.0)
-          name: Release v${{ steps.gitversion.outputs.majorMinorPatch }} # Name the release
-          body: | # Optional: Add release notes
+          tag_name: v${{ steps.gitversion.outputs.majorMinorPatch }}
+          name: Release v${{ steps.gitversion.outputs.majorMinorPatch }}
+          body: |
             Release based on commit ${{ github.sha }}
             Version: ${{ steps.gitversion.outputs.semVer }}
             Full SemVer: ${{ steps.gitversion.outputs.fullSemVer }}
           draft: false
-          prerelease: ${{ steps.gitversion.outputs.isPreRelease }} # Mark as pre-release if GitVersion determines it
-          # Specify the file(s) to upload as assets
-          # IMPORTANT: Adjust the path and executable name if needed!
-          files: ./publish/HardlineProphet.Cli.exe
+          prerelease: ${{ steps.gitversion.outputs.isPreRelease }}
+          # Using the corrected executable name based on your selection
+          files: ./publish/HardlineProphet.exe
 
