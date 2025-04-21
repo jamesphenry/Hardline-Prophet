@@ -699,6 +699,9 @@ To support editing and validation in Dev Mode, JSON schema definitions should be
 - [ ] add cheat codes?!?!
 - [ ] sound design, menu music, etc
 - [ ] use gitversion for version information, like versioned saves
+- [ ] would like the log window to scroll better, show current at bottom, and recents above to filling
+- [ ] instead of showing mission name progress 1/15, etc.  show a themed message describing actions for the progress, like progress quest.
+
 # Bugs
 - [ ] when modifying the gamestate the load fails due to checksum mismatch, i know this is going to me common in development, but we need to take into consideration for game updates!
 - [ ] 
