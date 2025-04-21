@@ -1,51 +1,44 @@
 # .github/workflows/release.yml
 name: Create Release Executable
 
-# Controls when the workflow will run
 on:
   push:
-    branches: [ main ] # Trigger workflow on pushes to the main branch
+    branches: [ main ]
 
 jobs:
   build-and-release:
-    runs-on: windows-latest # Use a Windows runner to build the .exe
+    runs-on: windows-latest
 
     steps:
-      # 1. Checkout the repository code
+      # 1. Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch all history for GitVersion to work correctly
+          fetch-depth: 0 # Required for GitVersion
 
-      # 2. Setup .NET SDK (Update version if needed)
+      # 2. Setup .NET SDK
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x' # Use the .NET version your project targets
+          dotnet-version: '9.0.x'
 
-      # 3. Install and run GitVersion to determine the version
+      # 3. Determine Version using GitVersion
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v1.1.1
         with:
           versionSpec: '5.x'
-
       - name: Determine Version
-        id: gitversion # Set an ID to reference outputs
+        id: gitversion
         uses: gittools/actions/gitversion/execute@v1.1.1
 
-      # 4. Restore dependencies (Good practice before build/test)
-      - name: Restore dependencies
-        run: dotnet restore
-
-      # 5. Run Tests (Added Step)
-      # This will run tests for all projects in the solution found by 'dotnet test'
-      # It uses the Release configuration to match the publish step.
+      # 4. Run Tests (Removed explicit restore step before this)
+      #    dotnet test will restore/build if necessary for the tests
       - name: Run Tests
-        run: dotnet test --configuration Release --no-restore # Use --no-restore as dependencies were just restored
+        run: dotnet test --configuration Release
 
-      # 6. Build and Publish the application (Only runs if tests pass)
+      # 5. Build and Publish (Removed --no-restore flag)
+      #    dotnet publish will now handle restore for the specified runtime
       - name: Publish Application
-        # Using the corrected project path based on your selection
         run: |
           dotnet publish ./src/HardlineProphet.Cli/HardlineProphet.csproj `
             -c Release `
@@ -53,11 +46,10 @@ jobs:
             --self-contained true `
             -p:PublishSingleFile=true `
             -p:Version=${{ steps.gitversion.outputs.assemblySemVer }} `
-            -o ./publish `
-            --no-restore # Dependencies were restored earlier
+            -o ./publish
         # ... (options explanation) ...
 
-      # 7. Create GitHub Release and Upload Artifact (Only runs if publish succeeds)
+      # 6. Create GitHub Release and Upload Artifact
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -72,6 +64,5 @@ jobs:
             Full SemVer: ${{ steps.gitversion.outputs.fullSemVer }}
           draft: false
           prerelease: ${{ steps.gitversion.outputs.isPreRelease }}
-          # Using the corrected executable name based on your selection
-          files: ./publish/HardlineProphet.exe
+          files: ./publish/HardlineProphet.exe # Adjusted executable name
 
