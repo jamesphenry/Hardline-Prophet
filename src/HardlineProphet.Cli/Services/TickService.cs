@@ -3,9 +3,9 @@ using HardlineProphet.Core; // GameConstants
 using HardlineProphet.Core.Extensions; // CalculateLevel()
 using HardlineProphet.Core.Interfaces; // ITickService
 using HardlineProphet.Core.Models; // GameState, Mission
-using System; // Func, Action, ArgumentNullException, Math, TimeSpan
-using System.Collections.Generic; // IReadOnlyDictionary
-using System.Linq; // FirstOrDefault
+using System; // Func, Action, ArgumentNullException, Math, TimeSpan, Random
+using System.Collections.Generic; // IReadOnlyDictionary, List
+using System.Linq; // FirstOrDefault, ToList, Where
 using Terminal.Gui; // MainLoop
 
 namespace HardlineProphet.Services;
@@ -20,6 +20,7 @@ public class TickService : ITickService
 
     private bool _isRunning = false;
     private object? _timeoutToken = null;
+    private static readonly Random _random = new Random(); // Random instance for selection
 
     private const double BaseTickIntervalSeconds = 2.0;
 
@@ -30,11 +31,8 @@ public class TickService : ITickService
         IReadOnlyDictionary<string, Mission> missionDefinitions,
         MainLoop? mainLoop = null)
     {
-        _getGameState = getGameState ?? throw new ArgumentNullException(nameof(getGameState));
-        _updateGameState = updateGameState ?? throw new ArgumentNullException(nameof(updateGameState));
-        _logAction = logAction ?? throw new ArgumentNullException(nameof(logAction));
-        _missionDefinitions = missionDefinitions ?? throw new ArgumentNullException(nameof(missionDefinitions));
-        _mainLoop = mainLoop;
+        // ... (Constructor remains the same) ...
+        _getGameState = getGameState ?? throw new ArgumentNullException(nameof(getGameState)); _updateGameState = updateGameState ?? throw new ArgumentNullException(nameof(updateGameState)); _logAction = logAction ?? throw new ArgumentNullException(nameof(logAction)); _missionDefinitions = missionDefinitions ?? throw new ArgumentNullException(nameof(missionDefinitions)); _mainLoop = mainLoop;
     }
 
     public bool IsRunning => _isRunning;
@@ -61,6 +59,7 @@ public class TickService : ITickService
         string? currentMissionId = currentState.ActiveMissionId;
         int currentProgress = currentState.ActiveMissionProgress;
         GameState newState;
+        string? missionToLog = currentMissionId; // Capture for logging before potential change
 
         // --- Mission Logic ---
         // 1. Assign default mission if none is active or current is invalid
@@ -71,7 +70,8 @@ public class TickService : ITickService
             {
                 _logAction?.Invoke($"No active/valid mission. Assigning default: {defaultMissionId}");
                 newState = currentState with { ActiveMissionId = defaultMissionId, ActiveMissionProgress = 1 };
-                _logAction?.Invoke($"Mission '{defaultMissionId}' started, progress: 1");
+                missionToLog = defaultMissionId; // Update for logging
+                _logAction?.Invoke($"Mission '{missionToLog}' started, progress: 1");
             }
             else
             {
@@ -95,42 +95,33 @@ public class TickService : ITickService
             if (currentProgress >= missionDef.DurationTicks)
             {
                 _logAction?.Invoke($"Mission '{currentMissionId}' completed!");
-                // Calculate new totals
                 var newCredits = currentState.Credits + missionDef.Reward.Credits;
                 var newExperience = currentState.Experience + missionDef.Reward.Xp;
-
-                // --- Calculate New Level ---
-                // Create temporary state just to pass to CalculateLevel extension method
                 var tempStateForLevelCalc = currentState with { Experience = newExperience };
-                int newLevel = tempStateForLevelCalc.CalculateLevel(); // Use the extension method
-                if (newLevel > currentState.Level)
-                {
-                    _logAction?.Invoke($"LEVEL UP! Reached Level {newLevel}");
-                }
-                // -------------------------
+                int newLevel = tempStateForLevelCalc.CalculateLevel();
+                if (newLevel > currentState.Level) { _logAction?.Invoke($"LEVEL UP! Reached Level {newLevel}"); }
 
-                // Reset progress for loop (M1 behavior)
-                currentProgress = 0;
-                _logAction?.Invoke($"Awarded {missionDef.Reward.Credits} Credits (Total: {newCredits}), {missionDef.Reward.Xp:F1} XP (Total: {newExperience:F1}). Level: {newLevel}. Resetting progress.");
+                // --- Select Next Mission ---
+                string? nextMissionId = SelectNextMissionId(currentMissionId);
+                missionToLog = nextMissionId; // Update for logging
+                                              // -------------------------
 
-                // Update state with rewards, NEW LEVEL, and reset progress
+                _logAction?.Invoke($"Awarded {missionDef.Reward.Credits} Cr, {missionDef.Reward.Xp:F1} XP. Level: {newLevel}. Selecting next mission: {nextMissionId ?? "None"}. Resetting progress.");
+
+                // Update state with rewards, level, reset progress, and NEW mission ID
                 newState = currentState with
                 {
                     Credits = newCredits,
                     Experience = newExperience,
-                    Level = newLevel, // Set the calculated level
-                    ActiveMissionProgress = currentProgress,
-                    ActiveMissionId = currentMissionId
+                    Level = newLevel,
+                    ActiveMissionProgress = 0, // Reset progress
+                    ActiveMissionId = nextMissionId // Assign the newly selected mission
                 };
             }
             else
             {
                 // Mission not complete, just update progress
-                newState = currentState with
-                {
-                    ActiveMissionProgress = currentProgress
-                    // Credits/XP/Level unchanged
-                };
+                newState = currentState with { ActiveMissionProgress = currentProgress };
             }
             // ------------------------------------
         }
@@ -139,6 +130,36 @@ public class TickService : ITickService
         _updateGameState(newState);
         _logAction?.Invoke($"Tick processed.");
     }
+
+    /// <summary>
+    /// Selects the next mission ID, attempting to pick a different one randomly.
+    /// </summary>
+    private string? SelectNextMissionId(string currentMissionId)
+    {
+        var allMissionIds = _missionDefinitions.Keys.ToList();
+        if (allMissionIds.Count == 0)
+        {
+            return null; // No missions available
+        }
+        if (allMissionIds.Count == 1)
+        {
+            return allMissionIds[0]; // Only one mission, loop it
+        }
+
+        // Try to pick a different mission
+        var possibleNextIds = allMissionIds.Where(id => id != currentMissionId).ToList();
+        if (!possibleNextIds.Any())
+        {
+            // Should only happen if currentMissionId was invalid but somehow passed checks,
+            // or if only one mission exists (handled above). Fallback to any mission.
+            possibleNextIds = allMissionIds;
+        }
+
+        // Select randomly from the possible next missions
+        int randomIndex = _random.Next(0, possibleNextIds.Count);
+        return possibleNextIds[randomIndex];
+    }
+
 
     private void ScheduleTick()
     {
