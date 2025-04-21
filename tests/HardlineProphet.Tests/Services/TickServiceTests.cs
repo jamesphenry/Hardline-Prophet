@@ -1,5 +1,6 @@
 ﻿// tests/HardlineProphet.Tests/Services/TickServiceTests.cs
 using HardlineProphet.Core; // GameConstants
+using HardlineProphet.Core.Extensions; // CalculateLevel()
 using HardlineProphet.Core.Models;
 using HardlineProphet.Services; // Implementation
 using NFluent;
@@ -15,13 +16,33 @@ public class TickServiceTests
 {
     private readonly ITestOutputHelper _output;
     private readonly IReadOnlyDictionary<string, Mission> _emptyMissions = new Dictionary<string, Mission>();
-    private readonly Mission _defaultMission = new Mission { Id = "test_mission_01", Name = "Test Mission", DurationTicks = 5, Reward = new MissionReward { Credits = 50, Xp = 10.5 } };
+    // Define a test mission with known duration/rewards
+    private readonly Mission _defaultMission = new Mission
+    {
+        Id = "test_mission_01",
+        Name = "Test Mission",
+        DurationTicks = 5, // Make duration easy to test
+        Reward = new MissionReward { Credits = 50, Xp = 10.5 } // Use specific rewards
+    };
+    // Mission designed to cause level up from 1 to 2 (needs 100 XP)
+    private readonly Mission _levelUpMission = new Mission
+    {
+        Id = "level_up_mission_01",
+        Name = "Level Up Mission",
+        DurationTicks = 3,
+        Reward = new MissionReward { Credits = 10, Xp = 100 } // Enough XP to guarantee level up from 1
+    };
     private readonly IReadOnlyDictionary<string, Mission> _testMissions;
+
 
     public TickServiceTests(ITestOutputHelper output)
     {
         _output = output;
-        _testMissions = new Dictionary<string, Mission> { { _defaultMission.Id, _defaultMission } };
+        // Setup missions dictionary containing the test missions
+        _testMissions = new Dictionary<string, Mission> {
+                 { _defaultMission.Id, _defaultMission },
+                 { _levelUpMission.Id, _levelUpMission }
+             };
     }
 
     private const double BaseTickIntervalSeconds = 2.0;
@@ -46,58 +67,50 @@ public class TickServiceTests
     public void ProcessTick_WhenNoActiveMission_AssignsDefaultMissionAndIncrementsProgress()
     {
         // ... (test remains the same) ...
-        var initialState = new GameState { Username = "MissionTester", ActiveMissionId = null, ActiveMissionProgress = 0, Credits = 500, Experience = 100 }; GameState? updatedState = null; Func<GameState?> getGameState = () => initialState; Action<GameState> updateGameState = (newState) => updatedState = newState; Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}"); var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null); tickService.Start(); tickService.ProcessTick(); Check.That(updatedState).IsNotNull(); Check.That(updatedState.ActiveMissionId).IsEqualTo(_defaultMission.Id); Check.That(updatedState.ActiveMissionProgress).IsEqualTo(1); Check.That(updatedState.Credits).IsEqualTo(initialState.Credits); Check.That(updatedState.Experience).IsEqualTo(initialState.Experience);
+        var initialState = new GameState { Username = "MissionTester", ActiveMissionId = null, ActiveMissionProgress = 0, Credits = 500, Experience = 100, Level = 2 }; GameState? updatedState = null; Func<GameState?> getGameState = () => initialState; Action<GameState> updateGameState = (newState) => updatedState = newState; Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}"); var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null); tickService.Start(); tickService.ProcessTick(); Check.That(updatedState).IsNotNull(); Check.That(updatedState.ActiveMissionId).IsEqualTo(_defaultMission.Id); Check.That(updatedState.ActiveMissionProgress).IsEqualTo(1); Check.That(updatedState.Credits).IsEqualTo(initialState.Credits); Check.That(updatedState.Experience).IsEqualTo(initialState.Experience); Check.That(updatedState.Level).IsEqualTo(initialState.Level); // Level shouldn't change here
     }
 
-    // --- Test for Mission Completion ---
     [Fact]
-    public void ProcessTick_WhenMissionCompletes_AwardsRewardsAndResetsProgress()
+    public void ProcessTick_WhenMissionCompletes_AwardsRewardsResetsProgressAndUpdatesLevel() // Updated test name
     {
         // Arrange
         var initialCredits = 100;
-        var initialXp = 50.0;
+        var initialXp = 50.0; // Start at Level 1 (needs 100 for L2)
+        var initialLevel = 1;
+        var missionToComplete = _levelUpMission; // Use mission that gives enough XP
+
         var initialState = new GameState
         {
             Username = "MissionCompleter",
-            ActiveMissionId = _defaultMission.Id, // Mission is active
-            ActiveMissionProgress = _defaultMission.DurationTicks - 1, // One tick away from completion
+            ActiveMissionId = missionToComplete.Id, // Level up mission is active
+            ActiveMissionProgress = missionToComplete.DurationTicks - 1, // One tick away
             Credits = initialCredits,
-            Experience = initialXp
+            Experience = initialXp,
+            Level = initialLevel // Start at level 1
         };
         GameState? updatedState = null;
         Func<GameState?> getGameState = () => initialState;
         Action<GameState> updateGameState = (newState) => updatedState = newState;
         Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}");
 
+        // Use the service with our defined test missions
         var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null);
         tickService.Start();
 
-        Exception caughtException = null!; // Initialize to null
-        try
-        {
-            // Act
-            _output.WriteLine("Calling ProcessTick...");
-            tickService.ProcessTick(); // This tick should complete the mission
-            _output.WriteLine("ProcessTick completed.");
-            // --- NO ASSERTIONS SHOULD BE INSIDE THIS TRY BLOCK ---
-        }
-        catch (Exception ex)
-        {
-            caughtException = ex;
-            _output.WriteLine($"LOG: Caught Exception: {ex.GetType().Name} - {ex.Message}");
-        }
-        // No finally needed as cleanup is handled by base class / test runner
+        // Act
+        tickService.ProcessTick(); // This tick should complete the mission
 
         // Assert
-        // These assertions run AFTER the try-catch block
-        Check.That(caughtException).IsNull(); // Check that ProcessTick didn't throw unexpectedly
-        Check.That(updatedState).IsNotNull(); // Check that the update delegate was called
+        // This test will FAIL on the Level check because TickService doesn't update it yet.
+        Check.That(updatedState).IsNotNull();
         // Check rewards were added
-        Check.That(updatedState.Credits).IsEqualTo(initialCredits + _defaultMission.Reward.Credits);
-        Check.That(updatedState.Experience).IsEqualTo(initialXp + _defaultMission.Reward.Xp);
-        // Check progress was reset (for looping in M1)
+        Check.That(updatedState.Credits).IsEqualTo(initialCredits + missionToComplete.Reward.Credits);
+        Check.That(updatedState.Experience).IsEqualTo(initialXp + missionToComplete.Reward.Xp); // Will be 50 + 100 = 150
+                                                                                                // Check progress was reset
         Check.That(updatedState.ActiveMissionProgress).IsEqualTo(0);
-        // Check mission ID remains the same (looping)
-        Check.That(updatedState.ActiveMissionId).IsEqualTo(_defaultMission.Id);
+        // Check mission ID remains the same
+        Check.That(updatedState.ActiveMissionId).IsEqualTo(missionToComplete.Id);
+        // Check Level was updated (150 XP should be Level 2)
+        Check.That(updatedState.Level).IsEqualTo(2); // <<< NEW ASSERTION (will fail)
     }
 }

@@ -1,5 +1,6 @@
 ﻿// src/HardlineProphet/Services/TickService.cs
 using HardlineProphet.Core; // GameConstants
+using HardlineProphet.Core.Extensions; // CalculateLevel()
 using HardlineProphet.Core.Interfaces; // ITickService
 using HardlineProphet.Core.Models; // GameState, Mission
 using System; // Func, Action, ArgumentNullException, Math, TimeSpan
@@ -40,19 +41,14 @@ public class TickService : ITickService
 
     public void Start()
     {
-        if (_isRunning) return;
-        _isRunning = true;
-        _logAction?.Invoke("TickService started. Scheduling first tick...");
-        if (_mainLoop != null) { ScheduleTick(); }
-        else { _logAction?.Invoke("TickService started but MainLoop is null (likely testing). Tick scheduling skipped."); }
+        // ... (Start logic remains the same) ...
+        if (_isRunning) return; _isRunning = true; _logAction?.Invoke("TickService started. Scheduling first tick..."); if (_mainLoop != null) { ScheduleTick(); } else { _logAction?.Invoke("TickService started but MainLoop is null (likely testing). Tick scheduling skipped."); }
     }
 
     public void Stop()
     {
-        if (!_isRunning) return;
-        _isRunning = false;
-        if (_mainLoop != null && _timeoutToken != null) { _mainLoop.RemoveTimeout(_timeoutToken); _timeoutToken = null; _logAction?.Invoke("TickService stopping. Removing timeout."); }
-        else { _logAction?.Invoke($"TickService stopping. MainLoop null? {_mainLoop == null}, Timeout token null? {_timeoutToken == null}"); }
+        // ... (Stop logic remains the same) ...
+        if (!_isRunning) return; _isRunning = false; if (_mainLoop != null && _timeoutToken != null) { _mainLoop.RemoveTimeout(_timeoutToken); _timeoutToken = null; _logAction?.Invoke("TickService stopping. Removing timeout."); } else { _logAction?.Invoke($"TickService stopping. MainLoop null? {_mainLoop == null}, Timeout token null? {_timeoutToken == null}"); }
     }
 
     public void ProcessTick()
@@ -80,7 +76,7 @@ public class TickService : ITickService
             else
             {
                 _logAction?.Invoke($"WARNING: No active mission and no default missions loaded. Cannot progress.");
-                return; // Exit if no mission can be assigned
+                return;
             }
         }
         // 2. If mission is active, increment progress and check for completion
@@ -89,7 +85,7 @@ public class TickService : ITickService
             if (!_missionDefinitions.TryGetValue(currentMissionId, out var missionDef))
             {
                 _logAction?.Invoke($"ERROR: Could not find definition for active mission ID '{currentMissionId}'. Skipping progress.");
-                return; // Exit if definition missing
+                return;
             }
 
             currentProgress++;
@@ -102,18 +98,29 @@ public class TickService : ITickService
                 // Calculate new totals
                 var newCredits = currentState.Credits + missionDef.Reward.Credits;
                 var newExperience = currentState.Experience + missionDef.Reward.Xp;
+
+                // --- Calculate New Level ---
+                // Create temporary state just to pass to CalculateLevel extension method
+                var tempStateForLevelCalc = currentState with { Experience = newExperience };
+                int newLevel = tempStateForLevelCalc.CalculateLevel(); // Use the extension method
+                if (newLevel > currentState.Level)
+                {
+                    _logAction?.Invoke($"LEVEL UP! Reached Level {newLevel}");
+                }
+                // -------------------------
+
                 // Reset progress for loop (M1 behavior)
                 currentProgress = 0;
+                _logAction?.Invoke($"Awarded {missionDef.Reward.Credits} Credits (Total: {newCredits}), {missionDef.Reward.Xp:F1} XP (Total: {newExperience:F1}). Level: {newLevel}. Resetting progress.");
 
-                _logAction?.Invoke($"Awarded {missionDef.Reward.Credits} Credits (Total: {newCredits}), {missionDef.Reward.Xp:F1} XP (Total: {newExperience:F1}). Resetting progress.");
-
-                // Update state with rewards and reset progress
+                // Update state with rewards, NEW LEVEL, and reset progress
                 newState = currentState with
                 {
                     Credits = newCredits,
                     Experience = newExperience,
+                    Level = newLevel, // Set the calculated level
                     ActiveMissionProgress = currentProgress,
-                    ActiveMissionId = currentMissionId // Keep same mission ID to loop
+                    ActiveMissionId = currentMissionId
                 };
             }
             else
@@ -122,7 +129,7 @@ public class TickService : ITickService
                 newState = currentState with
                 {
                     ActiveMissionProgress = currentProgress
-                    // Credits/XP unchanged
+                    // Credits/XP/Level unchanged
                 };
             }
             // ------------------------------------
@@ -135,28 +142,22 @@ public class TickService : ITickService
 
     private void ScheduleTick()
     {
-        if (!_isRunning || _mainLoop == null) return;
-        if (_timeoutToken != null) { _mainLoop.RemoveTimeout(_timeoutToken); _timeoutToken = null; }
-        var intervalMs = CalculateTickIntervalMs(_getGameState());
-        _logAction?.Invoke($"Scheduling next tick in {intervalMs}ms.");
-        _timeoutToken = _mainLoop?.AddTimeout(TimeSpan.FromMilliseconds(intervalMs), TickCallback);
+        // ... (ScheduleTick logic remains the same) ...
+        if (!_isRunning || _mainLoop == null) return; if (_timeoutToken != null) { _mainLoop.RemoveTimeout(_timeoutToken); _timeoutToken = null; }
+        var intervalMs = CalculateTickIntervalMs(_getGameState()); _logAction?.Invoke($"Scheduling next tick in {intervalMs}ms."); _timeoutToken = _mainLoop?.AddTimeout(TimeSpan.FromMilliseconds(intervalMs), TickCallback);
     }
 
     private bool TickCallback(MainLoop loop)
     {
-        if (!_isRunning) return false;
-        try { ProcessTick(); }
-        catch (Exception ex) { _logAction?.Invoke($"!!! ERROR during ProcessTick: {ex.Message}"); }
+        // ... (TickCallback logic remains the same) ...
+        if (!_isRunning) return false; try { ProcessTick(); } catch (Exception ex) { _logAction?.Invoke($"!!! ERROR during ProcessTick: {ex.Message}"); }
         return _isRunning;
     }
 
     internal double CalculateTickIntervalMs(GameState? state)
     {
-        var baseIntervalMs = BaseTickIntervalSeconds * 1000;
-        if (state?.Stats == null) { return baseIntervalMs; }
-        var hackSpeed = state.Stats.HackSpeed;
-        var speedFactor = Math.Clamp(1.0 - (hackSpeed / 100.0), 0.1, 1.0);
-        var calculatedInterval = baseIntervalMs * speedFactor;
-        return calculatedInterval;
+        // ... (CalculateTickIntervalMs logic remains the same) ...
+        var baseIntervalMs = BaseTickIntervalSeconds * 1000; if (state?.Stats == null) { return baseIntervalMs; }
+        var hackSpeed = state.Stats.HackSpeed; var speedFactor = Math.Clamp(1.0 - (hackSpeed / 100.0), 0.1, 1.0); var calculatedInterval = baseIntervalMs * speedFactor; return calculatedInterval;
     }
 }
