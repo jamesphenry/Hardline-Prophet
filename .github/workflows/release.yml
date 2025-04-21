@@ -3,11 +3,16 @@ name: Create Release Executable
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] # Trigger workflow on pushes to the main branch
 
 jobs:
   build-and-release:
-    runs-on: windows-latest
+    runs-on: windows-latest # Use a Windows runner to build the .exe
+
+    # --- Added Permissions ---
+    # Grant necessary permissions for the GITHUB_TOKEN used by actions
+    permissions:
+      contents: write # Needed by softprops/action-gh-release to create releases/tags
 
     steps:
       # 1. Checkout code
@@ -31,13 +36,11 @@ jobs:
         id: gitversion
         uses: gittools/actions/gitversion/execute@v1.1.1
 
-      # 4. Run Tests (Removed explicit restore step before this)
-      #    dotnet test will restore/build if necessary for the tests
+      # 4. Run Tests
       - name: Run Tests
         run: dotnet test --configuration Release
 
-      # 5. Build and Publish (Removed --no-restore flag)
-      #    dotnet publish will now handle restore for the specified runtime
+      # 5. Build and Publish
       - name: Publish Application
         run: |
           dotnet publish ./src/HardlineProphet.Cli/HardlineProphet.csproj `
@@ -54,7 +57,7 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Uses the token with granted permissions
         with:
           tag_name: v${{ steps.gitversion.outputs.majorMinorPatch }}
           name: Release v${{ steps.gitversion.outputs.majorMinorPatch }}
