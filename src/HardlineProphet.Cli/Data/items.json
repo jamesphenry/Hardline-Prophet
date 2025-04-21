@@ -1,0 +1,21 @@
+[
+  {
+    "Id": "neural_accelerator",
+    "Name": "Neural Accelerator",
+    "Cost": 100,
+    "EffectDescription": "+10% HackSpeed"
+  },
+  {
+    "Id": "signal_scrambler",
+    "Name": "Signal Scrambler",
+    "Cost": 150,
+    "EffectDescription": "+5 Stealth"
+  },
+  {
+    "Id": "data_compressor",
+    "Name": "Data Compressor",
+    "Cost": 200,
+    "EffectDescription": "+15% DataYield"
+  }
+]
+    

@@ -29,4 +29,10 @@
 		</AssemblyAttribute>
 	</ItemGroup>
 	
+	<ItemGroup>
+	  <Content Update="Data\items.json">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </Content>
+	</ItemGroup>
+	
 </Project>

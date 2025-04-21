@@ -25,6 +25,7 @@ public static class ApplicationState
     // New properties for Dev Mode and Service Initialization
     public static bool IsDevMode { get; private set; } = false; // Default to false
     public static IGameStateRepository? GameStateRepository { get; private set; } // Make nullable, init in method
+    public static IReadOnlyDictionary<string, Item>? LoadedItems { get; internal set; }
 
     /// <summary>
     /// Initializes application-level services after configuration (like dev mode) is known.
@@ -66,6 +67,7 @@ public static class Program
         // Load missions first, as other parts might depend on them
         LoadMissionDefinitions();
         // TODO: Load items, perks etc. later in a similar fashion
+        LoadItemDefinitions();
 
         // --- Init Terminal.Gui ---
         Application.Init();
@@ -160,5 +162,48 @@ public static class Program
             Console.WriteLine($"ERROR: An unexpected error occurred loading missions from {filePath}. Details: {ex.Message}");
             ApplicationState.LoadedMissions = new Dictionary<string, Mission>(); // Use empty on error
         }
+    }
+
+    /// <summary>
+    /// Loads item definitions from the Data/items.json file.
+    /// </summary>
+    private static void LoadItemDefinitions()
+    {
+        // Similar logic to LoadMissionDefinitions
+        string filePath = Path.Combine(AppContext.BaseDirectory, "Data", "items.json");
+        Console.WriteLine($"Attempting to load items from: {filePath}");
+
+        if (!File.Exists(filePath))
+        {
+            Console.WriteLine($"ERROR: Item definition file not found at {filePath}. Check Copy to Output Directory setting.");
+            ApplicationState.LoadedItems = new Dictionary<string, Item>();
+            return;
+        }
+
+        try
+        {
+            string json = File.ReadAllText(filePath);
+            var items = JsonSerializer.Deserialize<List<Item>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (items == null || !items.Any())
+            {
+                Console.WriteLine($"WARNING: No items loaded from {filePath}.");
+                ApplicationState.LoadedItems = new Dictionary<string, Item>();
+            }
+            else
+            {
+                ApplicationState.LoadedItems = items
+                    .GroupBy(i => i.Id)
+                    .ToDictionary(g => g.Key, g => g.First());
+                Console.WriteLine($"Successfully loaded {ApplicationState.LoadedItems.Count} item(s).");
+                if (items.Count != ApplicationState.LoadedItems.Count)
+                {
+                    Console.WriteLine($"WARNING: Duplicate item IDs found in {filePath}.");
+                }
+            }
+        }
+        catch (Exception ex) when (ex is JsonException || ex is NotSupportedException) { Console.WriteLine($"ERROR: Failed to parse items file {filePath}. Invalid JSON. Details: {ex.Message}"); ApplicationState.LoadedItems = new Dictionary<string, Item>(); }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { Console.WriteLine($"ERROR: Failed to read items file {filePath}. Details: {ex.Message}"); ApplicationState.LoadedItems = new Dictionary<string, Item>(); }
+        catch (Exception ex) { Console.WriteLine($"ERROR: An unexpected error occurred loading items from {filePath}. Details: {ex.Message}"); ApplicationState.LoadedItems = new Dictionary<string, Item>(); }
     }
 }

@@ -19,7 +19,7 @@ public class TickServiceTests
     private readonly IReadOnlyDictionary<string, Mission> _emptyMissions = new Dictionary<string, Mission>();
     // Define multiple test missions
     private readonly Mission _mission1 = new Mission { Id = "test_m1", Name = "Mission One", DurationTicks = 5, Reward = new MissionReward { Credits = 10, Xp = 1 } };
-    private readonly Mission _mission2 = new Mission { Id = "test_m2", Name = "Mission Two", DurationTicks = 3, Reward = new MissionReward { Credits = 20, Xp = 2 } };
+    private readonly Mission _mission2 = new Mission { Id = "test_m2", Name = "Mission Two", DurationTicks = 3, Reward = new MissionReward { Credits = 20, Xp = 100 } }; // Increased XP for level up test
     private readonly Mission _mission3 = new Mission { Id = "test_m3", Name = "Mission Three", DurationTicks = 8, Reward = new MissionReward { Credits = 30, Xp = 3 } };
     private readonly IReadOnlyDictionary<string, Mission> _testMissions;
 
@@ -37,6 +37,7 @@ public class TickServiceTests
 
     private const double BaseTickIntervalSeconds = 2.0;
 
+    // Updated helper to include missions dictionary
     private TickService CreateDummyTickService(IReadOnlyDictionary<string, Mission>? missions = null)
     {
         // Pass null for MainLoop, provide specific missions if not specified
@@ -57,56 +58,56 @@ public class TickServiceTests
     public void ProcessTick_WhenNoActiveMission_AssignsDefaultMissionAndIncrementsProgress()
     {
         // ... (test remains the same) ...
-        var initialState = new GameState { Username = "MissionTester", ActiveMissionId = null, ActiveMissionProgress = 0, Credits = 500, Experience = 100, Level = 1 }; GameState? updatedState = null; Func<GameState?> getGameState = () => initialState; Action<GameState> updateGameState = (newState) => updatedState = newState; Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}"); var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null); tickService.Start(); tickService.ProcessTick(); Check.That(updatedState).IsNotNull(); Check.That(updatedState.ActiveMissionId).IsEqualTo(_mission1.Id); /* Assumes mission1 is first */ Check.That(updatedState.ActiveMissionProgress).IsEqualTo(1); Check.That(updatedState.Credits).IsEqualTo(initialState.Credits); Check.That(updatedState.Experience).IsEqualTo(initialState.Experience); Check.That(updatedState.Level).IsEqualTo(initialState.Level);
+        var initialState = new GameState { Username = "MissionTester", ActiveMissionId = null, ActiveMissionProgress = 0, Credits = 500, Experience = 100, Level = 1 }; GameState? updatedState = null; Func<GameState?> getGameState = () => initialState; Action<GameState> updateGameState = (newState) => updatedState = newState; Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}"); var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null); tickService.Start(); tickService.ProcessTick(); Check.That(updatedState).IsNotNull(); Check.That(updatedState!.ActiveMissionId).IsEqualTo(_mission1.Id); Check.That(updatedState!.ActiveMissionProgress).IsEqualTo(1); Check.That(updatedState!.Credits).IsEqualTo(initialState.Credits); Check.That(updatedState!.Experience).IsEqualTo(initialState.Experience); Check.That(updatedState!.Level).IsEqualTo(initialState.Level);
     }
 
     [Fact]
-    public void ProcessTick_WhenMissionCompletes_AwardsRewardsResetsProgressAndUpdatesLevel()
-    {
-        // ... (test remains the same) ...
-        var initialCredits = 100; var initialXp = 50.0; var initialLevel = 1; var missionToComplete = _mission2; var initialState = new GameState { Username = "MissionCompleter", ActiveMissionId = missionToComplete.Id, ActiveMissionProgress = missionToComplete.DurationTicks - 1, Credits = initialCredits, Experience = initialXp, Level = initialLevel }; GameState? updatedState = null; Func<GameState?> getGameState = () => initialState; Action<GameState> updateGameState = (newState) => updatedState = newState; Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}"); var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null); tickService.Start(); tickService.ProcessTick(); Check.That(updatedState).IsNotNull(); Check.That(updatedState.Credits).IsEqualTo(initialCredits + missionToComplete.Reward.Credits); Check.That(updatedState.Experience).IsEqualTo(initialXp + missionToComplete.Reward.Xp); Check.That(updatedState.ActiveMissionProgress).IsEqualTo(0); Check.That(updatedState.ActiveMissionId).IsEqualTo(missionToComplete.Id); int expectedLevel = (initialState with { Experience = initialXp + missionToComplete.Reward.Xp }).CalculateLevel(); Check.That(updatedState.Level).IsEqualTo(expectedLevel);
-    }
-
-    // --- Test for Random Mission Assignment ---
-    [Fact]
-    public void ProcessTick_WhenMissionCompletes_AssignsNewRandomMissionId()
+    public void ProcessTick_WhenMissionCompletes_AwardsRewardsResetsProgressAndUpdatesLevel() // Renamed slightly
     {
         // Arrange
-        var missionToComplete = _mission1; // Start with mission 1
+        var initialCredits = 100;
+        var initialXp = 50.0; // Start at Level 1 (needs 100 for L2)
+        var initialLevel = 1;
+        var missionToComplete = _mission2; // Use mission 2 (gives 100 XP)
+
         var initialState = new GameState
         {
-            Username = "MissionSwitcher",
-            ActiveMissionId = missionToComplete.Id,
+            Username = "MissionCompleter",
+            ActiveMissionId = missionToComplete.Id, // Mission is active
             ActiveMissionProgress = missionToComplete.DurationTicks - 1, // One tick away
+            Credits = initialCredits,
+            Experience = initialXp,
+            Level = initialLevel // Start at level 1
         };
         GameState? updatedState = null;
         Func<GameState?> getGameState = () => initialState;
         Action<GameState> updateGameState = (newState) => updatedState = newState;
         Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}");
 
-        // Use the service with multiple test missions
         var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null);
         tickService.Start();
 
         // Act
-        tickService.ProcessTick(); // This tick should complete the mission and assign a new one
+        tickService.ProcessTick(); // This tick should complete the mission
 
         // Assert
-        // This test should FAIL now because ProcessTick currently keeps the same mission ID.
         Check.That(updatedState).IsNotNull();
-        Check.That(updatedState.ActiveMissionProgress).IsEqualTo(0); // Progress should reset
-        Check.That(updatedState.ActiveMissionId).IsNotNull(); // Should have an ID
-        Check.That(_testMissions.Keys).Contains(updatedState.ActiveMissionId); // Should be a valid ID
+        // Check rewards were added
+        Check.That(updatedState!.Credits).IsEqualTo(initialCredits + missionToComplete.Reward.Credits);
+        Check.That(updatedState!.Experience).IsEqualTo(initialXp + missionToComplete.Reward.Xp);
+        // Check progress was reset
+        Check.That(updatedState!.ActiveMissionProgress).IsEqualTo(0);
+        // Check Level was updated
+        int expectedLevel = (initialState with { Experience = initialXp + missionToComplete.Reward.Xp }).CalculateLevel();
+        Check.That(updatedState!.Level).IsEqualTo(expectedLevel);
+        // Check.That(updatedState!.ActiveMissionId).IsEqualTo(missionToComplete.Id); // REMOVED - ID changes now
+    }
 
-        // --- Added Assertion ---
-        // Check that the new mission is different from the completed one
-        // (This assumes there's more than one mission available)
-        if (_testMissions.Count > 1)
-        {
-            Check.That(updatedState.ActiveMissionId).IsNotEqualTo(missionToComplete.Id);
-        }
-        // ---------------------
-
+    [Fact]
+    public void ProcessTick_WhenMissionCompletes_AssignsNewRandomMissionId()
+    {
+        // ... (test remains the same) ...
+        var missionToComplete = _mission1; var initialState = new GameState { Username = "MissionSwitcher", ActiveMissionId = missionToComplete.Id, ActiveMissionProgress = missionToComplete.DurationTicks - 1 }; GameState? updatedState = null; Func<GameState?> getGameState = () => initialState; Action<GameState> updateGameState = (newState) => updatedState = newState; Action<string> logAction = (message) => _output.WriteLine($"LOG: {message}"); var tickService = new TickService(getGameState, updateGameState, logAction, _testMissions, mainLoop: null); tickService.Start(); tickService.ProcessTick(); Check.That(updatedState).IsNotNull(); Check.That(updatedState!.ActiveMissionProgress).IsEqualTo(0); Check.That(updatedState!.ActiveMissionId).IsNotNull(); Check.That(_testMissions.Keys).Contains(updatedState!.ActiveMissionId); if (_testMissions.Count > 1) { Check.That(updatedState!.ActiveMissionId).IsNotEqualTo(missionToComplete.Id); }
         _output.WriteLine($"Completed '{missionToComplete.Id}', New mission is '{updatedState.ActiveMissionId}'");
     }
 }
