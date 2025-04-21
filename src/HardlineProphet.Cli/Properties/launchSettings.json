@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "HardlineProphet": {
+      "commandName": "Project",
+      "commandLineArgs": "--dev"
+    }
+  }
+}
