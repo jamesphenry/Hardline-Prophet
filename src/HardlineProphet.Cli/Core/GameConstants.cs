@@ -7,22 +7,24 @@ namespace HardlineProphet.Core;
 public static class GameConstants
 {
     // --- Persistence ---
-    public const int CurrentSaveVersion = 2;
+    /// <summary>
+    /// The current version of the save game data structure.
+    /// Increment this when breaking changes are made to GameState.
+    /// V1: Initial release (pre-checksum, pre-mission fields)
+    /// V2: Added Checksum, ActiveMissionId, ActiveMissionProgress, Profile fields
+    /// V3: Added TraceLevel
+    /// </summary>
+    public const int CurrentSaveVersion = 3; // Incremented version
 
     // --- New Player Defaults ---
     public const int DefaultStartingLevel = 1;
     public const double DefaultStartingExperience = 0.0;
-    public const int DefaultStartingCredits = 100;
+    public const int DefaultStartingCredits = 100; // Base, class/perks modify
     public const int DefaultStartingHackSpeed = 5;
     public const int DefaultStartingStealth = 5;
     public const int DefaultStartingDataYield = 0;
 
     // --- Progression ---
-    /// <summary>
-    /// The base XP required for level calculations.
-    /// XP for Level L = BaseXP * (L-1)^1.5
-    /// </summary>
     public const double BaseXPForLeveling = 100.0;
 
-    // --- Add other constants here later ---
 }

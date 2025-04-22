@@ -40,6 +40,10 @@ public record GameState
     /// </summary>
     public List<string> SelectedStartingPerkIds { get; init; } = new List<string>(); // Default to empty list
                                                                                      // ------------------------------------
-
+                                                                                     // --- New Trace Property ---
+    /// <summary>
+    /// Current trace level (0.0 to 100.0). Increased by risky actions.
+    /// </summary>
+    public double TraceLevel { get; init; } = 0.0; // Default to 0
     // TODO: Add Difficulty Modifiers property later
 }

@@ -3,6 +3,7 @@
     "Id": "data_skim_01",
     "Name": "Data Skim",
     "DurationTicks": 15,
+    "TraceRisk": 0.01, 
     "Reward": {
       "Credits": 25,
       "Xp": 5.0
@@ -12,6 +13,7 @@
     "Id": "ice_probe_01",
     "Name": "ICE Probe",
     "DurationTicks": 25,
+    "TraceRisk": 0.03, 
     "Reward": {
       "Credits": 50,
       "Xp": 12.5
@@ -21,6 +23,7 @@
     "Id": "cache_wipe_01",
     "Name": "Cache Wipe",
     "DurationTicks": 10,
+    "TraceRisk": 0.005, 
     "Reward": {
       "Credits": 15,
       "Xp": 3.0

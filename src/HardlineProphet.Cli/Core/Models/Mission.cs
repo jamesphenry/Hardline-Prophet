@@ -23,7 +23,9 @@ public record Mission
     public int DurationTicks { get; init; } = 10; // Default to 10 ticks
     public MissionReward Reward { get; init; } = new MissionReward(); // Default empty reward
 
-    // Add Type, TraceRisk etc. in later milestones based on design doc 3.1
-    // public string Type { get; init; } = "Unknown";
-    // public double TraceRisk { get; init; } = 0.0;
+    // --- New Property ---
+    /// <summary>
+    /// Chance (0.0 to 1.0) per tick of increasing global TraceLevel while active.
+    /// </summary>
+    public double TraceRisk { get; init; } = 0.0; // Default to 0 risk
 }
