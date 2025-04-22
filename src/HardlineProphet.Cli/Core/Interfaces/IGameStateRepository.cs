@@ -1,6 +1,17 @@
-﻿// src/HardlineProphet/Core/Interfaces/IGameStateRepository.cs
-using HardlineProphet.Core.Models; // Access to GameState
+﻿// ╔═══════════════════════════════════════════════════════════════════════════
+// ║ [SYSTEM ID]   HARDLINE-PROPHET
+// ║ [STATUS]      OPERATIONAL
+// ║ [PRIORITY]    MAXIMUM
+// ║
+// ║ ▒▒▒ When Progress Is Your Only Religion ▒▒▒
+// ║
+// ║ 🧠  Project Lead: jamesphenry
+// ║ 🔢  GitVersion: 0.2.0-feature-m2-flavor-events.1+7
+// ║ 📄  File: IGameStateRepository.cs
+// ║ 🕒  Timestamp: 2025-04-21 22:52:51 -0500
+// // [CyberHeader] Injected by Hardline-Prophet
 using System.Threading.Tasks; // Required for Task
+using HardlineProphet.Core.Models; // Access to GameState
 
 namespace HardlineProphet.Core.Interfaces;
 

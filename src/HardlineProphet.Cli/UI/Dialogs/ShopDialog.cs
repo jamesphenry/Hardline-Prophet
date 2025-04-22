@@ -1,10 +1,21 @@
-﻿// src/HardlineProphet/UI/Dialogs/ShopDialog.cs
-using HardlineProphet.Core.Models; // Item, GameState
-using Terminal.Gui;
+﻿// ╔═══════════════════════════════════════════════════════════════════════════
+// ║ [SYSTEM ID]   HARDLINE-PROPHET
+// ║ [STATUS]      OPERATIONAL
+// ║ [PRIORITY]    MAXIMUM
+// ║
+// ║ ▒▒▒ When Progress Is Your Only Religion ▒▒▒
+// ║
+// ║ 🧠  Project Lead: jamesphenry
+// ║ 🔢  GitVersion: 0.2.0-feature-m2-flavor-events.1+7
+// ║ 📄  File: ShopDialog.cs
+// ║ 🕒  Timestamp: 2025-04-21 22:52:51 -0500
+// // [CyberHeader] Injected by Hardline-Prophet
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HardlineProphet.Core.Models; // Item, GameState
 using NStack; // For ustring
+using Terminal.Gui;
 
 namespace HardlineProphet.UI.Dialogs;
 
@@ -31,32 +42,77 @@ public class ShopDialog : Dialog
         _creditsLabel = new Label($"Credits: {currentCredits:N0}") { X = 1, Y = 0 };
 
         var listFrame = new FrameView("Available Upgrades")
-        { X = 0, Y = Pos.Bottom(_creditsLabel), Width = Dim.Percent(40), Height = Dim.Fill(4) };
+        {
+            X = 0,
+            Y = Pos.Bottom(_creditsLabel),
+            Width = Dim.Percent(40),
+            Height = Dim.Fill(4),
+        };
         _itemListView = new ListView()
-        { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), AllowsMarking = false, AllowsMultipleSelection = false };
-        _itemListView.SetSource(_shopItems.Select(item => $"{item.Name} ({item.Cost} Cr)").ToList());
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            AllowsMarking = false,
+            AllowsMultipleSelection = false,
+        };
+        _itemListView.SetSource(
+            _shopItems.Select(item => $"{item.Name} ({item.Cost} Cr)").ToList()
+        );
         _itemListView.SelectedItemChanged += ItemSelected;
         listFrame.Add(_itemListView);
 
         var descFrame = new FrameView("Description / Effect")
-        { X = Pos.Right(listFrame) + 1, Y = Pos.Top(listFrame), Width = Dim.Fill(1), Height = Dim.Height(listFrame) };
+        {
+            X = Pos.Right(listFrame) + 1,
+            Y = Pos.Top(listFrame),
+            Width = Dim.Fill(1),
+            Height = Dim.Height(listFrame),
+        };
         _itemDescriptionView = new TextView()
-        { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), ReadOnly = true, WordWrap = true, ColorScheme = Colors.Base };
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            ReadOnly = true,
+            WordWrap = true,
+            ColorScheme = Colors.Base,
+        };
         descFrame.Add(_itemDescriptionView);
 
         _purchaseButton = new Button("Purchase")
-        { X = Pos.Center() - 15, Y = Pos.AnchorEnd(1), Enabled = false };
+        {
+            X = Pos.Center() - 15,
+            Y = Pos.AnchorEnd(1),
+            Enabled = false,
+        };
         _purchaseButton.Clicked += PurchaseSelectedItem;
 
         // Assign to the field instead of declaring a local variable
         _closeButton = new Button("Close")
-        { X = Pos.Right(_purchaseButton) + 1, Y = _purchaseButton.Y, IsDefault = false };
-        _closeButton.Clicked += () => { Application.RequestStop(); };
+        {
+            X = Pos.Right(_purchaseButton) + 1,
+            Y = _purchaseButton.Y,
+            IsDefault = false,
+        };
+        _closeButton.Clicked += () =>
+        {
+            Application.RequestStop();
+        };
 
         Add(_creditsLabel, listFrame, descFrame, _purchaseButton, _closeButton);
 
-        if (_shopItems.Any()) { ItemSelected(new ListViewItemEventArgs(0, _itemListView.Source.ToList()[0])); _itemListView.SelectedItem = 0; }
-        else { _itemDescriptionView.Text = "No items available."; }
+        if (_shopItems.Any())
+        {
+            ItemSelected(new ListViewItemEventArgs(0, _itemListView.Source.ToList()[0]));
+            _itemListView.SelectedItem = 0;
+        }
+        else
+        {
+            _itemDescriptionView.Text = "No items available.";
+        }
     }
 
     private void ItemSelected(ListViewItemEventArgs args)
@@ -65,8 +121,10 @@ public class ShopDialog : Dialog
         if (selectedIndex >= 0 && selectedIndex < _shopItems.Count)
         {
             var selectedItem = _shopItems[selectedIndex];
-            _itemDescriptionView.Text = $"{selectedItem.EffectDescription}\n\nCost: {selectedItem.Cost} Credits";
-            _purchaseButton.Enabled = (ApplicationState.CurrentGameState?.Credits ?? 0) >= selectedItem.Cost;
+            _itemDescriptionView.Text =
+                $"{selectedItem.EffectDescription}\n\nCost: {selectedItem.Cost} Credits";
+            _purchaseButton.Enabled =
+                (ApplicationState.CurrentGameState?.Credits ?? 0) >= selectedItem.Cost;
             _purchaseButton.IsDefault = _purchaseButton.Enabled;
             _closeButton.IsDefault = !_purchaseButton.Enabled; // Use field _closeButton
         }
@@ -85,9 +143,18 @@ public class ShopDialog : Dialog
     private void PurchaseSelectedItem()
     {
         int selectedIndex = _itemListView.SelectedItem;
-        if (ApplicationState.CurrentGameState == null || ApplicationState.CurrentGameState.Stats == null || selectedIndex < 0 || selectedIndex >= _shopItems.Count)
+        if (
+            ApplicationState.CurrentGameState == null
+            || ApplicationState.CurrentGameState.Stats == null
+            || selectedIndex < 0
+            || selectedIndex >= _shopItems.Count
+        )
         {
-            MessageBox.ErrorQuery("Purchase Error", "Cannot complete purchase.\nNo item selected or game state error.", "OK");
+            MessageBox.ErrorQuery(
+                "Purchase Error",
+                "Cannot complete purchase.\nNo item selected or game state error.",
+                "OK"
+            );
             return;
         }
 
@@ -96,7 +163,11 @@ public class ShopDialog : Dialog
 
         if (currentState.Credits < selectedItem.Cost)
         {
-            MessageBox.ErrorQuery("Insufficient Credits", $"You need {selectedItem.Cost} credits, but only have {currentState.Credits}.", "OK");
+            MessageBox.ErrorQuery(
+                "Insufficient Credits",
+                $"You need {selectedItem.Cost} credits, but only have {currentState.Credits}.",
+                "OK"
+            );
             _purchaseButton.Enabled = false;
             _purchaseButton.IsDefault = false;
             _closeButton.IsDefault = true; // Use field _closeButton
@@ -107,18 +178,29 @@ public class ShopDialog : Dialog
         {
             var newCredits = currentState.Credits - selectedItem.Cost;
             currentState.Stats.ApplyUpgrade(selectedItem);
-            Console.WriteLine($"DEBUG: Stats after applying {selectedItem.Id}: HS={currentState.Stats.HackSpeed}, ST={currentState.Stats.Stealth}, DY={currentState.Stats.DataYield}");
+            Console.WriteLine(
+                $"DEBUG: Stats after applying {selectedItem.Id}: HS={currentState.Stats.HackSpeed}, ST={currentState.Stats.Stealth}, DY={currentState.Stats.DataYield}"
+            );
             ApplicationState.CurrentGameState = currentState with { Credits = newCredits };
             PurchaseMade = true;
             _creditsLabel.Text = $"Credits: {newCredits:N0}";
             _creditsLabel.SetNeedsDisplay();
-            ItemSelected(new ListViewItemEventArgs(selectedIndex, _itemListView.Source.ToList()[selectedIndex])); // Re-evaluate buttons
+            ItemSelected(
+                new ListViewItemEventArgs(
+                    selectedIndex,
+                    _itemListView.Source.ToList()[selectedIndex]
+                )
+            ); // Re-evaluate buttons
             MessageBox.Query("Purchase Successful", $"Installed {selectedItem.Name}!", "OK");
             _itemListView.SetFocus();
         }
         catch (Exception ex)
         {
-            MessageBox.ErrorQuery("Purchase Error", $"An error occurred applying the upgrade:\n{ex.Message}", "OK");
+            MessageBox.ErrorQuery(
+                "Purchase Error",
+                $"An error occurred applying the upgrade:\n{ex.Message}",
+                "OK"
+            );
         }
     }
 }

@@ -1,8 +1,19 @@
-﻿// tests/HardlineProphet.Tests/Helpers/PersistenceTestHelper.cs
-using HardlineProphet.Core.Models;
+﻿// ╔═══════════════════════════════════════════════════════════════════════════
+// ║ [SYSTEM ID]   HARDLINE-PROPHET
+// ║ [STATUS]      OPERATIONAL
+// ║ [PRIORITY]    MAXIMUM
+// ║
+// ║ ▒▒▒ When Progress Is Your Only Religion ▒▒▒
+// ║
+// ║ 🧠  Project Lead: jamesphenry
+// ║ 🔢  GitVersion: 0.2.0-feature-m2-flavor-events.1+7
+// ║ 📄  File: PersistenceTestHelper.cs
+// ║ 🕒  Timestamp: 2025-04-21 22:52:51 -0500
+// // [CyberHeader] Injected by Hardline-Prophet
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
+using HardlineProphet.Core.Models;
 
 namespace HardlineProphet.Tests.Helpers;
 
@@ -10,7 +21,7 @@ public static class PersistenceTestHelper
 {
     private static readonly JsonSerializerOptions _serializerOptions = new()
     {
-        WriteIndented = true // Match potential default save options
+        WriteIndented = true, // Match potential default save options
         // Ensure options match what the repository expects or uses for saving eventually
     };
 
@@ -23,7 +34,11 @@ public static class PersistenceTestHelper
     /// <param name="username">The username for the save file name.</param>
     /// <param name="stateToSave">The GameState object to serialize and save.</param>
     /// <returns>The full path to the created save file.</returns>
-    public static async Task<string> SetupExistingSaveFileAsync(string directoryPath, string username, GameState stateToSave)
+    public static async Task<string> SetupExistingSaveFileAsync(
+        string directoryPath,
+        string username,
+        GameState stateToSave
+    )
     {
         // Construct path (basic sanitization included for consistency)
         var sanitizedUsername = string.Join("_", username.Split(Path.GetInvalidFileNameChars()));

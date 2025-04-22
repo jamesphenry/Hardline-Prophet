@@ -1,10 +1,21 @@
-﻿// tests/HardlineProphet.Tests/Core/Models/GameStateExtensionsTests.cs
+﻿// ╔═══════════════════════════════════════════════════════════════════════════
+// ║ [SYSTEM ID]   HARDLINE-PROPHET
+// ║ [STATUS]      OPERATIONAL
+// ║ [PRIORITY]    MAXIMUM
+// ║
+// ║ ▒▒▒ When Progress Is Your Only Religion ▒▒▒
+// ║
+// ║ 🧠  Project Lead: jamesphenry
+// ║ 🔢  GitVersion: 0.2.0-feature-m2-flavor-events.1+7
+// ║ 📄  File: GameStateExtensionsTests.cs
+// ║ 🕒  Timestamp: 2025-04-21 22:52:51 -0500
+// // [CyberHeader] Injected by Hardline-Prophet
+using System;
 using HardlineProphet.Core; // GameConstants (will add BaseXP constant later)
+using HardlineProphet.Core.Extensions; // Math
 using HardlineProphet.Core.Models;
 using NFluent;
 using Xunit;
-using System;
-using HardlineProphet.Core.Extensions; // Math
 
 namespace HardlineProphet.Tests.Core.Models;
 
@@ -36,7 +47,10 @@ public class GameStateExtensionsTests
     // Higher level example (BaseXP * 9^1.5 = 2700 XP needed for Level 10)
     [InlineData(2699.9, 9)] // Close boundary
     [InlineData(2700.0, 10)]
-    public void CalculateLevel_ReturnsCorrectLevelForExperience(double experience, int expectedLevel)
+    public void CalculateLevel_ReturnsCorrectLevelForExperience(
+        double experience,
+        int expectedLevel
+    )
     {
         // Arrange
         var gameState = CreateStateWithXp(experience);
@@ -46,7 +60,6 @@ public class GameStateExtensionsTests
 
         // Assert
         Check.That(actualLevel).IsEqualTo(expectedLevel);
-
     }
 
     // Optional: Add test for negative XP if that's possible? Assume XP >= 0 for now.
@@ -61,6 +74,5 @@ public class GameStateExtensionsTests
 
         // Assert
         Check.That(actualLevel).IsEqualTo(1); // Expect level 1 for negative XP
-
     }
 }

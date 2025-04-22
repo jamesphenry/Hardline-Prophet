@@ -1,4 +1,15 @@
-﻿// src/HardlineProphet/Core/Models/PlayerStats.cs
+﻿// ╔═══════════════════════════════════════════════════════════════════════════
+// ║ [SYSTEM ID]   HARDLINE-PROPHET
+// ║ [STATUS]      OPERATIONAL
+// ║ [PRIORITY]    MAXIMUM
+// ║
+// ║ ▒▒▒ When Progress Is Your Only Religion ▒▒▒
+// ║
+// ║ 🧠  Project Lead: jamesphenry
+// ║ 🔢  GitVersion: 0.2.0-feature-m2-flavor-events.1+7
+// ║ 📄  File: PlayerStats.cs
+// ║ 🕒  Timestamp: 2025-04-21 22:52:51 -0500
+// // [CyberHeader] Injected by Hardline-Prophet
 using System; // Added for Math, StringSplitOptions, StringComparison
 using System.Globalization; // Added for CultureInfo
 
@@ -40,7 +51,8 @@ public class PlayerStats
         try
         {
             string[] parts = effect.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2) return; // Need at least value and stat name
+            if (parts.Length < 2)
+                return; // Need at least value and stat name
 
             string valuePart = parts[0];
             string statNamePart = parts[parts.Length - 1]; // Assume stat name is last part
@@ -55,37 +67,55 @@ public class PlayerStats
                 // Apply flat or percentage bonus
                 if (statNamePart.Equals("Stealth", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (isPercentage) Stealth += (int)Math.Ceiling(Stealth * (value / 100.0));
-                    else Stealth += (int)value;
+                    if (isPercentage)
+                        Stealth += (int)Math.Ceiling(Stealth * (value / 100.0));
+                    else
+                        Stealth += (int)value;
                     Console.WriteLine($"DEBUG: Applied {effect} to Stealth. New value: {Stealth}");
                 }
                 else if (statNamePart.Equals("HackSpeed", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (isPercentage) HackSpeed += (int)Math.Ceiling(HackSpeed * (value / 100.0));
-                    else HackSpeed += (int)value;
-                    Console.WriteLine($"DEBUG: Applied {effect} to HackSpeed. New value: {HackSpeed}");
+                    if (isPercentage)
+                        HackSpeed += (int)Math.Ceiling(HackSpeed * (value / 100.0));
+                    else
+                        HackSpeed += (int)value;
+                    Console.WriteLine(
+                        $"DEBUG: Applied {effect} to HackSpeed. New value: {HackSpeed}"
+                    );
                 }
                 else if (statNamePart.Equals("DataYield", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (isPercentage) DataYield += (int)Math.Ceiling(DataYield * (value / 100.0)); // Using Ceiling for consistency
-                    else DataYield += (int)value;
-                    Console.WriteLine($"DEBUG: Applied {effect} to DataYield. New value: {DataYield}");
+                    if (isPercentage)
+                        DataYield += (int)Math.Ceiling(DataYield * (value / 100.0)); // Using Ceiling for consistency
+                    else
+                        DataYield += (int)value;
+                    Console.WriteLine(
+                        $"DEBUG: Applied {effect} to DataYield. New value: {DataYield}"
+                    );
                 }
                 else
                 {
-                    Console.WriteLine($"DEBUG: Unknown stat name '{statNamePart}' in effect '{effect}'");
+                    Console.WriteLine(
+                        $"DEBUG: Unknown stat name '{statNamePart}' in effect '{effect}'"
+                    );
                 }
             }
             else
             {
-                Console.WriteLine($"DEBUG: Could not parse value '{valuePart}' in effect '{effect}'");
+                Console.WriteLine(
+                    $"DEBUG: Could not parse value '{valuePart}' in effect '{effect}'"
+                );
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"ERROR: Failed to parse or apply effect '{effect}'. Details: {ex.Message}");
+            Console.WriteLine(
+                $"ERROR: Failed to parse or apply effect '{effect}'. Details: {ex.Message}"
+            );
         }
 
-        Console.WriteLine($"DEBUG: Stats after apply: HS={HackSpeed}, ST={Stealth}, DY={DataYield}");
+        Console.WriteLine(
+            $"DEBUG: Stats after apply: HS={HackSpeed}, ST={Stealth}, DY={DataYield}"
+        );
     }
 }

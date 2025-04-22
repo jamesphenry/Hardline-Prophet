@@ -1,0 +1,31 @@
+[
+  {
+    "Id": "event_whisper",
+    "Trigger": "OnTick",
+    "Chance": 0.02,
+    "Text": "A rogue AI whispers from the void...",
+    "Effect": null
+  },
+  {
+    "Id": "event_static_burst",
+    "Trigger": "OnTick",
+    "Chance": 0.05,
+    "Text": "A burst of static floods your feed, then clears.",
+    "Effect": null
+  },
+  {
+    "Id": "event_login_ad",
+    "Trigger": "OnLogin",
+    "Chance": 0.5,
+    "Text": "Ad: 'Tired of slow connections? Upgrade to ChronosNet!'",
+    "Effect": null
+  },
+  {
+    "Id": "event_levelup_ping",
+    "Trigger": "OnLevelUp",
+    "Chance": 1.0,
+    "Text": "Neural pathways optimized. Efficiency increased.",
+    "Effect": null
+  }
+]
+    

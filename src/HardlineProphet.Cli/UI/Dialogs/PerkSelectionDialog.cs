@@ -1,9 +1,20 @@
-﻿// src/HardlineProphet/UI/Dialogs/PerkSelectionDialog.cs
-using Terminal.Gui;
+﻿// ╔═══════════════════════════════════════════════════════════════════════════
+// ║ [SYSTEM ID]   HARDLINE-PROPHET
+// ║ [STATUS]      OPERATIONAL
+// ║ [PRIORITY]    MAXIMUM
+// ║
+// ║ ▒▒▒ When Progress Is Your Only Religion ▒▒▒
+// ║
+// ║ 🧠  Project Lead: jamesphenry
+// ║ 🔢  GitVersion: 0.2.0-feature-m2-flavor-events.1+7
+// ║ 📄  File: PerkSelectionDialog.cs
+// ║ 🕒  Timestamp: 2025-04-21 22:52:51 -0500
+// // [CyberHeader] Injected by Hardline-Prophet
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using NStack;
+using Terminal.Gui;
 using Terminal.Gui.Graphs; // For ustring
 
 namespace HardlineProphet.UI.Dialogs;
@@ -20,12 +31,12 @@ public class PerkSelectionDialog : Dialog
 {
     // Define the available starting perks based on Readme 3.4
     private static readonly List<StartingPerk> _startingPerks = new()
-        {
-            new("trace_dampener", "Trace Dampener", "-25% trace build-up rate."),
-            new("stim_surge", "Stim Surge", "First 5 missions complete instantly."),
-            new("seed_capital", "Seed Capital", "Start with an extra 500 credits."),
-            new("soft_override", "Soft Override", "First failure is auto-converted to success.")
-        };
+    {
+        new("trace_dampener", "Trace Dampener", "-25% trace build-up rate."),
+        new("stim_surge", "Stim Surge", "First 5 missions complete instantly."),
+        new("seed_capital", "Seed Capital", "Start with an extra 500 credits."),
+        new("soft_override", "Soft Override", "First failure is auto-converted to success."),
+    };
 
     public string SelectedPerkId { get; private set; } = string.Empty;
     public bool Canceled { get; private set; } = true;
@@ -44,7 +55,7 @@ public class PerkSelectionDialog : Dialog
         {
             X = 1,
             Y = 1,
-            SelectedItem = 0 // Default to first perk
+            SelectedItem = 0, // Default to first perk
         };
         _radioGroup.SelectedItemChanged += (args) => UpdateDescription(args.SelectedItem);
 
@@ -56,7 +67,7 @@ public class PerkSelectionDialog : Dialog
             Height = Dim.Height(_radioGroup),
             ReadOnly = true,
             WordWrap = true,
-            ColorScheme = Colors.Base
+            ColorScheme = Colors.Base,
         };
 
         // Use Orientation directly now that we know Graphs isn't needed here
@@ -64,13 +75,13 @@ public class PerkSelectionDialog : Dialog
         {
             X = Pos.Right(_radioGroup) + 1,
             Y = 1,
-            Height = Dim.Height(_radioGroup)
+            Height = Dim.Height(_radioGroup),
         };
 
         var okButton = new Button("Select", is_default: true)
         {
             X = Pos.Center() - 10,
-            Y = Pos.Bottom(_radioGroup) + 1
+            Y = Pos.Bottom(_radioGroup) + 1,
         };
         okButton.Clicked += () =>
         {
@@ -86,11 +97,7 @@ public class PerkSelectionDialog : Dialog
             }
         };
 
-        var cancelButton = new Button("Cancel")
-        {
-            X = Pos.Right(okButton) + 1,
-            Y = okButton.Y
-        };
+        var cancelButton = new Button("Cancel") { X = Pos.Right(okButton) + 1, Y = okButton.Y };
         cancelButton.Clicked += () =>
         {
             SelectedPerkId = string.Empty;
