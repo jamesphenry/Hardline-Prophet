@@ -6,7 +6,7 @@
 // ║ ▒▒▒ When Progress Is Your Only Religion ▒▒▒
 // ║
 // ║ 🧠  Project Lead: jamesphenry
-// ║ 🔢  GitVersion: 0.2.0-alpha.11
+// ║ 🔢  GitVersion: 0.2.0-alpha.12
 // ║ 📄  File: TickService.cs
 // ║ 🕒  Timestamp: 2025-04-21 22:52:51 -0500
 // // [CyberHeader] Injected by Hardline-Prophet
@@ -114,7 +114,7 @@ public class TickService : ITickService
             return;
         }
 
-        _logAction?.Invoke($"Processing tick for {currentState.Username}...");
+        //_logAction?.Invoke($"Processing tick for {currentState.Username}...");
 
         string? currentMissionId = currentState.ActiveMissionId;
         int currentProgress = currentState.ActiveMissionProgress;
@@ -141,7 +141,7 @@ public class TickService : ITickService
                     TraceLevel = currentTrace,
                 };
                 missionToLog = defaultMissionId;
-                _logAction?.Invoke($"Mission '{missionToLog}' started, progress: 1");
+                _logAction?.Invoke($"Mission '{missionToLog}' started");
             }
             else
             {
@@ -162,9 +162,9 @@ public class TickService : ITickService
             }
 
             currentProgress++;
-            _logAction?.Invoke(
-                $"Mission '{currentMissionId}' progress: {currentProgress}/{missionDef.DurationTicks}"
-            );
+            //_logAction?.Invoke(
+            //    $"Mission '{currentMissionId}' progress: {currentProgress}/{missionDef.DurationTicks}"
+            //);
 
             // --- Trace Increase Logic ---
             if (missionDef.TraceRisk > 0)
@@ -173,15 +173,13 @@ public class TickService : ITickService
                 if (randomValue < missionDef.TraceRisk)
                 {
                     currentTrace = Math.Clamp(currentTrace + TraceIncreaseAmount, 0.0, 100.0);
-                    _logAction?.Invoke(
-                        $"Trace risk check succeeded! Trace increased to {currentTrace:F1}"
-                    );
+                    _logAction?.Invoke($"Trace increased to {currentTrace:F1}");
                 }
                 else
                 {
-                    _logAction?.Invoke(
-                        $"Trace risk check failed (Rolled {randomValue:F3} vs Risk {missionDef.TraceRisk:P1})."
-                    );
+                    //_logAction?.Invoke(
+                    //    $"Trace risk check failed (Rolled {randomValue:F3} vs Risk {missionDef.TraceRisk:P1})."
+                    //);
                 }
             }
 
@@ -202,7 +200,7 @@ public class TickService : ITickService
                 string? nextMissionId = SelectNextMissionId(currentMissionId);
                 missionToLog = nextMissionId;
                 _logAction?.Invoke(
-                    $"Awarded {missionDef.Reward.Credits} Cr, {missionDef.Reward.Xp:F1} XP. Level: {newLevel}. Selecting next mission: {nextMissionId ?? "None"}. Resetting progress."
+                    $"Awarded {missionDef.Reward.Credits} Cr, {missionDef.Reward.Xp:F1} XP. Level: {newLevel}."
                 );
                 currentProgress = 0;
                 newState = currentState with
@@ -236,7 +234,7 @@ public class TickService : ITickService
         // -------------------------------------------
 
         _updateGameState(newState); // Update state *after* all modifications
-        _logAction?.Invoke($"Tick processed.");
+        //_logAction?.Invoke($"Tick processed.");
     }
 
     /// <summary>
@@ -254,7 +252,7 @@ public class TickService : ITickService
                     _logAction?.Invoke(ev.Text); // Log the event text
                     // TODO: Apply ev.Effect to the 'state' object here later
                     // Example: if (ev.Effect?.Stat == "Stealth") state = state with { Stats = state.Stats with { Stealth = state.Stats.Stealth + (int)ev.Effect.Value } };
-                    _logAction?.Invoke($"Triggered flavor event: {ev.Id}");
+                    //_logAction?.Invoke($"Triggered flavor event: {ev.Id}");
                     // Should we allow multiple events per trigger type per tick? For now, yes.
                 }
             }
@@ -291,7 +289,7 @@ public class TickService : ITickService
             _timeoutToken = null;
         }
         var intervalMs = CalculateTickIntervalMs(_getGameState());
-        _logAction?.Invoke($"Scheduling next tick in {intervalMs}ms.");
+        //_logAction?.Invoke($"Scheduling next tick in {intervalMs}ms.");
         _timeoutToken = _mainLoop?.AddTimeout(TimeSpan.FromMilliseconds(intervalMs), TickCallback);
     }
 
