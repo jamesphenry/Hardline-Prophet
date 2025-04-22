@@ -1,10 +1,21 @@
-﻿// tests/HardlineProphet.Tests/Infrastructure/Persistence/JsonGameStateRepositoryTests/PersistenceTestsBase.cs
-using HardlineProphet.Core.Models;
+﻿// ╔═══════════════════════════════════════════════════════════════════════════
+// ║ [SYSTEM ID]   HARDLINE-PROPHET
+// ║ [STATUS]      OPERATIONAL
+// ║ [PRIORITY]    MAXIMUM
+// ║
+// ║ ▒▒▒ When Progress Is Your Only Religion ▒▒▒
+// ║
+// ║ 🧠  Project Lead: jamesphenry
+// ║ 🔢  GitVersion: 0.2.0-feature-m2-flavor-events.1+8
+// ║ 📄  File: PersistenceTestsBase.cs
+// ║ 🕒  Timestamp: 2025-04-21 22:52:51 -0500
+// // [CyberHeader] Injected by Hardline-Prophet
 using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using HardlineProphet.Core.Models;
 using Xunit.Abstractions; // ITestOutputHelper
 
 namespace HardlineProphet.Tests.Infrastructure.Persistence.JsonGameStateRepositoryTests;
@@ -21,13 +32,14 @@ public abstract class PersistenceTestsBase : IDisposable // Implement IDisposabl
     protected static readonly JsonSerializerOptions _checksumSerializerOptions = new()
     {
         WriteIndented = false,
-        PropertyNamingPolicy = null
+        PropertyNamingPolicy = null,
     };
+
     // Shared serializer options for saving test files (can differ)
     protected static readonly JsonSerializerOptions _saveTestSerializerOptions = new()
     {
         WriteIndented = true,
-        PropertyNamingPolicy = null
+        PropertyNamingPolicy = null,
     };
 
     protected PersistenceTestsBase(ITestOutputHelper output)
@@ -42,7 +54,10 @@ public abstract class PersistenceTestsBase : IDisposable // Implement IDisposabl
     protected string GetSaveFilePath(string username)
     {
         var sanitizedUsername = string.Join("_", username.Split(Path.GetInvalidFileNameChars()));
-        if (string.IsNullOrWhiteSpace(sanitizedUsername)) { sanitizedUsername = "default_user"; }
+        if (string.IsNullOrWhiteSpace(sanitizedUsername))
+        {
+            sanitizedUsername = "default_user";
+        }
         return Path.Combine(_testRunDirectory, $"{sanitizedUsername}.save.json");
     }
 
@@ -88,7 +103,13 @@ public abstract class PersistenceTestsBase : IDisposable // Implement IDisposabl
         if (!string.IsNullOrEmpty(_testRunDirectory) && Directory.Exists(_testRunDirectory))
         {
             _output.WriteLine($"Cleaning up test directory: {_testRunDirectory}");
-            try { Directory.Delete(_testRunDirectory, true); } catch { /* Ignore cleanup errors */ }
+            try
+            {
+                Directory.Delete(_testRunDirectory, true);
+            }
+            catch
+            { /* Ignore cleanup errors */
+            }
         }
     }
 }

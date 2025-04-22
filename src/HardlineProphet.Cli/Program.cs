@@ -1,15 +1,27 @@
-﻿// src/HardlineProphet/Program.cs
+﻿// ╔═══════════════════════════════════════════════════════════════════════════
+// ║ [SYSTEM ID]   HARDLINE-PROPHET
+// ║ [STATUS]      OPERATIONAL
+// ║ [PRIORITY]    MAXIMUM
+// ║
+// ║ ▒▒▒ When Progress Is Your Only Religion ▒▒▒
+// ║
+// ║ 🧠  Project Lead: jamesphenry
+// ║ 🔢  GitVersion: 0.2.0-feature-m2-flavor-events.1+9
+// ║ 📄  File: Program.cs
+// ║ 🕒  Timestamp: 2025-04-21 22:52:51 -0500
+// // [CyberHeader] Injected by Hardline-Prophet
+using System;
+using System.Collections.Generic; // Dictionary, List
+using System.IO; // Path, File, InvalidDataException, IOException
+using System.Linq; // ToDictionary
+using System.Text.Json;
+using System.Text.Json.Serialization; // JsonSerializer, JsonException
 using HardlineProphet.Core.Interfaces;
 using HardlineProphet.Core.Models;
 using HardlineProphet.Infrastructure.Persistence;
 using HardlineProphet.Services;
 using HardlineProphet.UI.Views;
 using Terminal.Gui;
-using System;
-using System.Collections.Generic; // Dictionary, List
-using System.IO; // Path, File, InvalidDataException, IOException
-using System.Linq; // ToDictionary
-using System.Text.Json; // JsonSerializer, JsonException
 
 // --- Application State ---
 // --- Application State ---
@@ -26,6 +38,11 @@ public static class ApplicationState
     public static bool IsDevMode { get; private set; } = false; // Default to false
     public static IGameStateRepository? GameStateRepository { get; private set; } // Make nullable, init in method
     public static IReadOnlyDictionary<string, Item>? LoadedItems { get; internal set; }
+    public static IReadOnlyDictionary<FlavorEventTrigger, List<FlavorEvent>>? LoadedFlavorEvents
+    {
+        get;
+        internal set;
+    }
 
     /// <summary>
     /// Initializes application-level services after configuration (like dev mode) is known.
@@ -64,10 +81,9 @@ public static class Program
         ApplicationState.InitializeServices(isDevMode);
 
         // --- Load Definitions ---
-        // Load missions first, as other parts might depend on them
         LoadMissionDefinitions();
-        // TODO: Load items, perks etc. later in a similar fashion
         LoadItemDefinitions();
+        LoadFlavorEvents();
 
         // --- Init Terminal.Gui ---
         Application.Init();
@@ -79,7 +95,7 @@ public static class Program
             Focus = Application.Driver.MakeAttribute(Color.Black, Color.BrightGreen),
             HotNormal = Application.Driver.MakeAttribute(Color.BrightMagenta, Color.Black),
             HotFocus = Application.Driver.MakeAttribute(Color.Black, Color.BrightMagenta),
-            Disabled = Application.Driver.MakeAttribute(Color.DarkGray, Color.Black)
+            Disabled = Application.Driver.MakeAttribute(Color.DarkGray, Color.Black),
         };
 
         // Create Main Window (returns the content window)
@@ -108,7 +124,9 @@ public static class Program
         // Ensure the file exists before trying to read
         if (!File.Exists(filePath))
         {
-            Console.WriteLine($"ERROR: Mission definition file not found at {filePath}. Check Copy to Output Directory setting.");
+            Console.WriteLine(
+                $"ERROR: Mission definition file not found at {filePath}. Check Copy to Output Directory setting."
+            );
             // Set to empty dictionary to avoid null references later
             ApplicationState.LoadedMissions = new Dictionary<string, Mission>();
             return;
@@ -120,12 +138,17 @@ public static class Program
             string json = File.ReadAllText(filePath);
 
             // Deserialize the JSON array into a list of Mission objects
-            var missions = JsonSerializer.Deserialize<List<Mission>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var missions = JsonSerializer.Deserialize<List<Mission>>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
 
             // Check if deserialization was successful and yielded any missions
             if (missions == null || !missions.Any())
             {
-                Console.WriteLine($"WARNING: No missions loaded from {filePath}. File might be empty or contain only 'null'.");
+                Console.WriteLine(
+                    $"WARNING: No missions loaded from {filePath}. File might be empty or contain only 'null'."
+                );
                 ApplicationState.LoadedMissions = new Dictionary<string, Mission>();
             }
             else
@@ -135,31 +158,41 @@ public static class Program
                 ApplicationState.LoadedMissions = missions
                     .GroupBy(m => m.Id) // Group by ID
                     .ToDictionary(g => g.Key, g => g.First()); // Take the first mission for each ID
-                Console.WriteLine($"Successfully loaded {ApplicationState.LoadedMissions.Count} mission(s). Default ID: {ApplicationState.DefaultMissionId}");
+                Console.WriteLine(
+                    $"Successfully loaded {ApplicationState.LoadedMissions.Count} mission(s). Default ID: {ApplicationState.DefaultMissionId}"
+                );
 
                 // Log warning if duplicates were found
                 if (missions.Count != ApplicationState.LoadedMissions.Count)
                 {
-                    Console.WriteLine($"WARNING: Duplicate mission IDs found in {filePath}. Only the first occurrence of each ID was loaded.");
+                    Console.WriteLine(
+                        $"WARNING: Duplicate mission IDs found in {filePath}. Only the first occurrence of each ID was loaded."
+                    );
                 }
             }
         }
         // Handle errors during JSON parsing
         catch (JsonException ex)
         {
-            Console.WriteLine($"ERROR: Failed to parse missions file {filePath}. Invalid JSON. Details: {ex.Message}");
+            Console.WriteLine(
+                $"ERROR: Failed to parse missions file {filePath}. Invalid JSON. Details: {ex.Message}"
+            );
             ApplicationState.LoadedMissions = new Dictionary<string, Mission>(); // Use empty on error
         }
         // Handle errors during file reading
         catch (IOException ex)
         {
-            Console.WriteLine($"ERROR: Failed to read missions file {filePath}. Details: {ex.Message}");
+            Console.WriteLine(
+                $"ERROR: Failed to read missions file {filePath}. Details: {ex.Message}"
+            );
             ApplicationState.LoadedMissions = new Dictionary<string, Mission>(); // Use empty on error
         }
         // Handle any other unexpected errors during loading
         catch (Exception ex)
         {
-            Console.WriteLine($"ERROR: An unexpected error occurred loading missions from {filePath}. Details: {ex.Message}");
+            Console.WriteLine(
+                $"ERROR: An unexpected error occurred loading missions from {filePath}. Details: {ex.Message}"
+            );
             ApplicationState.LoadedMissions = new Dictionary<string, Mission>(); // Use empty on error
         }
     }
@@ -175,7 +208,9 @@ public static class Program
 
         if (!File.Exists(filePath))
         {
-            Console.WriteLine($"ERROR: Item definition file not found at {filePath}. Check Copy to Output Directory setting.");
+            Console.WriteLine(
+                $"ERROR: Item definition file not found at {filePath}. Check Copy to Output Directory setting."
+            );
             ApplicationState.LoadedItems = new Dictionary<string, Item>();
             return;
         }
@@ -183,7 +218,10 @@ public static class Program
         try
         {
             string json = File.ReadAllText(filePath);
-            var items = JsonSerializer.Deserialize<List<Item>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var items = JsonSerializer.Deserialize<List<Item>>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
 
             if (items == null || !items.Any())
             {
@@ -195,15 +233,97 @@ public static class Program
                 ApplicationState.LoadedItems = items
                     .GroupBy(i => i.Id)
                     .ToDictionary(g => g.Key, g => g.First());
-                Console.WriteLine($"Successfully loaded {ApplicationState.LoadedItems.Count} item(s).");
+                Console.WriteLine(
+                    $"Successfully loaded {ApplicationState.LoadedItems.Count} item(s)."
+                );
                 if (items.Count != ApplicationState.LoadedItems.Count)
                 {
                     Console.WriteLine($"WARNING: Duplicate item IDs found in {filePath}.");
                 }
             }
         }
-        catch (Exception ex) when (ex is JsonException || ex is NotSupportedException) { Console.WriteLine($"ERROR: Failed to parse items file {filePath}. Invalid JSON. Details: {ex.Message}"); ApplicationState.LoadedItems = new Dictionary<string, Item>(); }
-        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { Console.WriteLine($"ERROR: Failed to read items file {filePath}. Details: {ex.Message}"); ApplicationState.LoadedItems = new Dictionary<string, Item>(); }
-        catch (Exception ex) { Console.WriteLine($"ERROR: An unexpected error occurred loading items from {filePath}. Details: {ex.Message}"); ApplicationState.LoadedItems = new Dictionary<string, Item>(); }
+        catch (Exception ex) when (ex is JsonException || ex is NotSupportedException)
+        {
+            Console.WriteLine(
+                $"ERROR: Failed to parse items file {filePath}. Invalid JSON. Details: {ex.Message}"
+            );
+            ApplicationState.LoadedItems = new Dictionary<string, Item>();
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+        {
+            Console.WriteLine(
+                $"ERROR: Failed to read items file {filePath}. Details: {ex.Message}"
+            );
+            ApplicationState.LoadedItems = new Dictionary<string, Item>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(
+                $"ERROR: An unexpected error occurred loading items from {filePath}. Details: {ex.Message}"
+            );
+            ApplicationState.LoadedItems = new Dictionary<string, Item>();
+        }
+    }
+
+    private static void LoadFlavorEvents() // <<< New Method
+    {
+        string filePath = Path.Combine(AppContext.BaseDirectory, "Data", "flavorevents.json");
+        Console.WriteLine($"Attempting to load flavor events from: {filePath}");
+
+        var emptyResult = new Dictionary<FlavorEventTrigger, List<FlavorEvent>>();
+
+        if (!File.Exists(filePath))
+        {
+            Console.WriteLine($"ERROR: Flavor event definition file not found at {filePath}.");
+            ApplicationState.LoadedFlavorEvents = emptyResult;
+            return;
+        }
+
+        try
+        {
+            string json = File.ReadAllText(filePath);
+            // Use options to handle enum string conversion
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            options.Converters.Add(new JsonStringEnumConverter());
+
+            var events = JsonSerializer.Deserialize<List<FlavorEvent>>(json, options);
+
+            if (events == null || !events.Any())
+            {
+                Console.WriteLine($"WARNING: No flavor events loaded from {filePath}.");
+                ApplicationState.LoadedFlavorEvents = emptyResult;
+            }
+            else
+            {
+                // Group events by their trigger type for efficient lookup later
+                ApplicationState.LoadedFlavorEvents = events
+                    .GroupBy(ev => ev.Trigger)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+                Console.WriteLine(
+                    $"Successfully loaded {events.Count} flavor event(s), grouped into {ApplicationState.LoadedFlavorEvents.Count} trigger type(s)."
+                );
+            }
+        }
+        catch (Exception ex) when (ex is JsonException || ex is NotSupportedException)
+        {
+            Console.WriteLine(
+                $"ERROR: Failed to parse flavor events file {filePath}. Invalid JSON. Details: {ex.Message}"
+            );
+            ApplicationState.LoadedFlavorEvents = emptyResult;
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+        {
+            Console.WriteLine(
+                $"ERROR: Failed to read flavor events file {filePath}. Details: {ex.Message}"
+            );
+            ApplicationState.LoadedFlavorEvents = emptyResult;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(
+                $"ERROR: An unexpected error occurred loading flavor events from {filePath}. Details: {ex.Message}"
+            );
+            ApplicationState.LoadedFlavorEvents = emptyResult;
+        }
     }
 }

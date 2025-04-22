@@ -1,6 +1,17 @@
-﻿// src/HardlineProphet/UI/Dialogs/LogonDialog.cs
-using Terminal.Gui;
+﻿// ╔═══════════════════════════════════════════════════════════════════════════
+// ║ [SYSTEM ID]   HARDLINE-PROPHET
+// ║ [STATUS]      OPERATIONAL
+// ║ [PRIORITY]    MAXIMUM
+// ║
+// ║ ▒▒▒ When Progress Is Your Only Religion ▒▒▒
+// ║
+// ║ 🧠  Project Lead: jamesphenry
+// ║ 🔢  GitVersion: 0.2.0-feature-m2-flavor-events.1+9
+// ║ 📄  File: LogonDialog.cs
+// ║ 🕒  Timestamp: 2025-04-21 22:52:51 -0500
+// // [CyberHeader] Injected by Hardline-Prophet
 using System; // String
+using Terminal.Gui;
 
 namespace HardlineProphet.UI.Dialogs;
 
@@ -14,24 +25,20 @@ public class LogonDialog : Dialog
         Title = "Logon";
         ColorScheme = Colors.Dialog; // Use default dialog scheme or inject custom
 
-        var usernameLabel = new Label("Username:")
-        {
-            X = 1,
-            Y = 1
-        };
+        var usernameLabel = new Label("Username:") { X = 1, Y = 1 };
 
         UsernameText = new TextField("")
         {
             X = Pos.Right(usernameLabel) + 1,
             Y = 1,
-            Width = Dim.Fill(2) // Fill width minus padding
+            Width = Dim.Fill(2), // Fill width minus padding
         };
 
         // Buttons
         var okButton = new Button("Logon", is_default: true)
         {
             X = Pos.Center() - 10, // Position buttons
-            Y = Pos.Bottom(UsernameText) + 1
+            Y = Pos.Bottom(UsernameText) + 1,
         };
         okButton.Clicked += () =>
         {
@@ -48,11 +55,7 @@ public class LogonDialog : Dialog
             }
         };
 
-        var cancelButton = new Button("Cancel")
-        {
-            X = Pos.Right(okButton) + 1,
-            Y = okButton.Y
-        };
+        var cancelButton = new Button("Cancel") { X = Pos.Right(okButton) + 1, Y = okButton.Y };
         cancelButton.Clicked += () =>
         {
             Canceled = true;

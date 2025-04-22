@@ -30,6 +30,9 @@
 	</ItemGroup>
 	
 	<ItemGroup>
+	  <Content Update="Data\flavorevents.json">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </Content>
 	  <Content Update="Data\items.json">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </Content>

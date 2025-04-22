@@ -1,7 +1,18 @@
-﻿// src/HardlineProphet/Core/Extensions/GameStateExtensions.cs
-using HardlineProphet.Core.Models; // GameState, PlayerClass, PlayerStats
+﻿// ╔═══════════════════════════════════════════════════════════════════════════
+// ║ [SYSTEM ID]   HARDLINE-PROPHET
+// ║ [STATUS]      OPERATIONAL
+// ║ [PRIORITY]    MAXIMUM
+// ║
+// ║ ▒▒▒ When Progress Is Your Only Religion ▒▒▒
+// ║
+// ║ 🧠  Project Lead: jamesphenry
+// ║ 🔢  GitVersion: 0.2.0-feature-m2-flavor-events.1+9
+// ║ 📄  File: GameStateExtensions.cs
+// ║ 🕒  Timestamp: 2025-04-21 22:52:51 -0500
+// // [CyberHeader] Injected by Hardline-Prophet
 using System; // Math
 using System.Linq; // Contains
+using HardlineProphet.Core.Models; // GameState, PlayerClass, PlayerStats
 
 namespace HardlineProphet.Core.Extensions;
 
@@ -16,8 +27,29 @@ public static class GameStateExtensions
     public static int CalculateLevel(this GameState gameState)
     {
         // ... (CalculateLevel logic remains the same) ...
-        double currentXp = gameState.Experience; if (currentXp < GameConstants.BaseXPForLeveling) { return 1; }
-        int currentLevel = 1; while (true) { double xpThresholdForNextLevel = GameConstants.BaseXPForLeveling * Math.Pow(currentLevel, 1.5); if (currentXp < xpThresholdForNextLevel) { return currentLevel; } currentLevel++; if (currentLevel > 9999) { Console.Error.WriteLine("Warning: Max level calculation reached in CalculateLevel."); return currentLevel; } }
+        double currentXp = gameState.Experience;
+        if (currentXp < GameConstants.BaseXPForLeveling)
+        {
+            return 1;
+        }
+        int currentLevel = 1;
+        while (true)
+        {
+            double xpThresholdForNextLevel =
+                GameConstants.BaseXPForLeveling * Math.Pow(currentLevel, 1.5);
+            if (currentXp < xpThresholdForNextLevel)
+            {
+                return currentLevel;
+            }
+            currentLevel++;
+            if (currentLevel > 9999)
+            {
+                Console.Error.WriteLine(
+                    "Warning: Max level calculation reached in CalculateLevel."
+                );
+                return currentLevel;
+            }
+        }
     }
 
     /// <summary>
@@ -33,10 +65,25 @@ public static class GameStateExtensions
 
         return playerClass switch
         {
-            PlayerClass.Runner => new PlayerStats { HackSpeed = baseHackSpeed + 5, Stealth = baseStealth + 0, DataYield = baseDataYield + 0 }, // HS: 10, ST: 5, DY: 0 (+10% HS is effectively +5 from base 5?) - Revisit bonus interpretation later
-            PlayerClass.Broker => new PlayerStats { HackSpeed = baseHackSpeed + 0, Stealth = baseStealth + 0, DataYield = baseDataYield + 10 }, // HS: 5, ST: 5, DY: 10 (+10% DY?)
-            PlayerClass.Ghost => new PlayerStats { HackSpeed = baseHackSpeed + 0, Stealth = baseStealth + 10, DataYield = baseDataYield + 0 }, // HS: 5, ST: 15, DY: 0 (+15% ST?)
-            _ => new PlayerStats() // Default if class is Undefined
+            PlayerClass.Runner => new PlayerStats
+            {
+                HackSpeed = baseHackSpeed + 5,
+                Stealth = baseStealth + 0,
+                DataYield = baseDataYield + 0,
+            }, // HS: 10, ST: 5, DY: 0 (+10% HS is effectively +5 from base 5?) - Revisit bonus interpretation later
+            PlayerClass.Broker => new PlayerStats
+            {
+                HackSpeed = baseHackSpeed + 0,
+                Stealth = baseStealth + 0,
+                DataYield = baseDataYield + 10,
+            }, // HS: 5, ST: 5, DY: 10 (+10% DY?)
+            PlayerClass.Ghost => new PlayerStats
+            {
+                HackSpeed = baseHackSpeed + 0,
+                Stealth = baseStealth + 10,
+                DataYield = baseDataYield + 0,
+            }, // HS: 5, ST: 15, DY: 0 (+15% ST?)
+            _ => new PlayerStats(), // Default if class is Undefined
         };
         // Note: The "%" bonuses in the design doc might need clearer interpretation later.
         // For now, applying them as flat additions to the base default stats.

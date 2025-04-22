@@ -1,4 +1,15 @@
-﻿// src/HardlineProphet/Core/Models/GameState.cs
+﻿// ╔═══════════════════════════════════════════════════════════════════════════
+// ║ [SYSTEM ID]   HARDLINE-PROPHET
+// ║ [STATUS]      OPERATIONAL
+// ║ [PRIORITY]    MAXIMUM
+// ║
+// ║ ▒▒▒ When Progress Is Your Only Religion ▒▒▒
+// ║
+// ║ 🧠  Project Lead: jamesphenry
+// ║ 🔢  GitVersion: 0.2.0-feature-m2-flavor-events.1+9
+// ║ 📄  File: GameState.cs
+// ║ 🕒  Timestamp: 2025-04-21 22:52:51 -0500
+// // [CyberHeader] Injected by Hardline-Prophet
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
@@ -39,8 +50,9 @@ public record GameState
     /// (Using string IDs for flexibility, could be enum if perks are fixed).
     /// </summary>
     public List<string> SelectedStartingPerkIds { get; init; } = new List<string>(); // Default to empty list
-                                                                                     // ------------------------------------
-                                                                                     // --- New Trace Property ---
+
+    // ------------------------------------
+    // --- New Trace Property ---
     /// <summary>
     /// Current trace level (0.0 to 100.0). Increased by risky actions.
     /// </summary>
